@@ -2,16 +2,19 @@
   "name": "doc-converter",
   "version": "1.0.0",
   "description": "사건 기록 변환 도구 — 손글씨 OCR, 음성 녹취록, 채팅 로그를 Markdown으로 변환",
-  "main": "dist/cli.js",
+  "main": "electron/main.cjs",
   "type": "module",
   "bin": {
-    "doc-converter": "dist/cli.js"
+    "doc-converter": "dist/src/cli.js"
   },
   "scripts": {
-    "build": "tsc",
+    "build": "tsc && npm run build:assets",
+    "build:assets": "node -e \"const fs=require('node:fs'); fs.cpSync('src/meeting-templates','dist/src/meeting-templates',{recursive:true}); fs.cpSync('src/ui/public','dist/src/ui/public',{recursive:true});\"",
     "dev": "tsx src/cli.ts",
-    "start": "node dist/cli.js",
-    "ui": "tsx src/cli.ts ui"
+    "start": "node dist/src/cli.js",
+    "ui": "tsx src/cli.ts ui",
+    "dev:electron": "npm run build && env -u ELECTRON_RUN_AS_NODE electron .",
+    "dist:mac": "npm run build && env -u ELECTRON_RUN_AS_NODE electron-builder --mac"
   },
   "keywords": [
     "ocr",
@@ -24,6 +27,8 @@
   "license": "GPL-3.0",
   "dependencies": {
     "@anthropic-ai/sdk": "^0.95.0",
+    "@ffmpeg-installer/ffmpeg": "^1.1.0",
+    "@ffprobe-installer/ffprobe": "^2.1.2",
     "@google/genai": "^1.46.0",
     "chalk": "^5.6.2",
     "commander": "^14.0.3",
@@ -31,12 +36,15 @@
     "express": "^5.2.1",
     "glob": "^13.0.6",
     "multer": "^2.1.1",
-    "ora": "^9.3.0"
+    "ora": "^9.3.0",
+    "pdf-poppler": "^0.2.3"
   },
   "devDependencies": {
     "@types/express": "^5.0.6",
     "@types/multer": "^2.1.0",
     "@types/node": "^25.5.0",
+    "electron": "^42.0.0",
+    "electron-builder": "^26.8.1",
     "tsx": "^4.21.0",
     "typescript": "^6.0.2"
   }

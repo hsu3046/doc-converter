@@ -1,52 +1,44 @@
-import { exec } from 'node:child_process';
-import { promisify } from 'node:util';
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import crypto from 'node:crypto';
-
-const execAsync = promisify(exec);
+// @ts-expect-error - pdf-poppler 타입 미제공 (CJS 라이브러리)
+import poppler from 'pdf-poppler';
 
 /**
- * pdftoppm을 이용해 PDF를 낱장 PNG로 변환합니다 (Fallback 용도).
+ * pdf-poppler 번들 binary 로 PDF를 낱장 PNG로 변환 (Fallback 용도).
+ * 시스템 PATH 의존 X — Electron 패키징에서도 동작.
+ *
  * @param pdfPath 원본 PDF 경로
  * @returns 추출된 PNG 파일 경로들의 배열 (처리 순서 보장)
  */
 export async function extractPdfToImages(pdfPath: string): Promise<string[]> {
-  try {
-    // pdftoppm 설치 여부 확인
-    await execAsync('which pdftoppm');
-  } catch (err) {
-    throw new Error('Local Fallback을 사용하려면 poppler가 설치되어 있어야 합니다. (brew install poppler)');
-  }
-
-  const outDir = path.join(path.dirname(pdfPath), `pdf_fallback_${crypto.randomUUID().slice(0,8)}`);
+  const outDir = path.join(path.dirname(pdfPath), `pdf_fallback_${crypto.randomUUID().slice(0, 8)}`);
   await fs.mkdir(outDir, { recursive: true });
 
-  const prefix = path.join(outDir, 'page');
-  
-  // -png: PNG 포맷
-  // -r 150: 150 DPI (너무 고해상도면 API 또 거부됨)
-  // -rx 150 -ry 150 도 쓸 수 있음
+  // pdf-poppler convert: format=png, scale=1240 ≈ A4 150 DPI 너비 (기존 -r 150 와 유사)
+  // out_prefix='page' → page-1.png, page-2.png ...
   try {
-    // pdftoppm 실행
-    await execAsync(`pdftoppm -png -r 150 "${pdfPath}" "${prefix}"`);
+    await poppler.convert(pdfPath, {
+      format: 'png',
+      out_dir: outDir,
+      out_prefix: 'page',
+      scale: 1240,
+    });
 
-    // 생성된 파일 목록 읽기
     const files = await fs.readdir(outDir);
-    const pngFiles = files.filter(f => f.startsWith('page-') && f.endsWith('.png'));
-    
-    // 번호 순 정렬 (page-1.png, page-2.png ...)
+    const pngFiles = files.filter((f) => f.startsWith('page-') && f.endsWith('.png'));
     pngFiles.sort((a, b) => {
       const matchA = a.match(/page-(\d+)\.png/);
       const matchB = b.match(/page-(\d+)\.png/);
-      const numA = matchA ? parseInt(matchA[1], 10) : 0;
-      const numB = matchB ? parseInt(matchB[1], 10) : 0;
+      const numA = matchA ? parseInt(matchA[1]!, 10) : 0;
+      const numB = matchB ? parseInt(matchB[1]!, 10) : 0;
       return numA - numB;
     });
 
-    return pngFiles.map(f => path.join(outDir, f));
-  } catch (error: any) {
-    throw new Error(`PDF 로컬 변환 실패: ${error.message}`);
+    return pngFiles.map((f) => path.join(outDir, f));
+  } catch (error: unknown) {
+    const msg = error instanceof Error ? error.message : String(error);
+    throw new Error(`PDF 로컬 변환 실패: ${msg}`);
   }
 }
 

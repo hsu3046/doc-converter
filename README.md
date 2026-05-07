@@ -59,11 +59,35 @@ Evidence documentation shouldn't require hours of manual transcription. Whether 
 
 ## 📦 Installation
 
+### macOS desktop app (Electron — recommended for end users)
+
+For non-technical users — no Node, ffmpeg, or terminal required.
+
+1. Build the `.dmg` (one-time, on a developer machine):
+   ```bash
+   npm install
+   npm run dist:mac
+   # → dist-electron/Doc Converter-1.0.0-arm64.dmg  (Apple Silicon)
+   # → dist-electron/Doc Converter-1.0.0.dmg        (Intel)
+   ```
+2. Distribute the `.dmg` to your team. Each user:
+   - Double-click the `.dmg` → drag **Doc Converter** to **Applications**
+   - **First launch**: macOS shows "확인되지 않은 개발자" warning (코드 서명 안 했음)
+     → Finder 에서 우클릭 → **열기** → **다시 열기** (1회만 — 이후 정상)
+   - Open **Settings (⚙️)** in the app header → enter `GEMINI_API_KEY` and `CLAUDE_API_KEY`
+     - 키는 macOS Keychain 에 안전 저장됨 (앱 외부 접근 불가)
+     - 키 발급: [Google AI Studio](https://aistudio.google.com/apikey) · [Anthropic Console](https://console.anthropic.com/settings/keys)
+3. Output files automatically save to `~/Documents/Doc Converter Output/`. Custom templates go in `~/.doc-converter/meeting-templates/`.
+
+`ffmpeg`, `ffprobe`, `poppler` 모두 앱 안에 번들됨 — 별도 설치 불필요.
+
+### Developer install (for CLI / Web UI / source contribution)
+
 ```bash
-git clone https://github.com/KnowAI/doc-converter.git
+git clone https://github.com/hsu3046/doc-converter.git
 cd doc-converter
 npm install
-cp .env.example .env.local   # Fill in your GEMINI_API_KEY
+cp .env.example .env.local   # Fill in GEMINI_API_KEY and CLAUDE_API_KEY
 ```
 
 **Run the browser UI:**
@@ -71,6 +95,12 @@ cp .env.example .env.local   # Fill in your GEMINI_API_KEY
 ```bash
 npm run ui -- --port 4000
 # Open http://localhost:4000
+```
+
+**Run the Electron app in dev mode:**
+
+```bash
+npm run dev:electron
 ```
 
 **Run the CLI directly:**
@@ -145,17 +175,15 @@ language: ko
 
 `name` is required. The body is injected verbatim into the LLM prompt — describe the structure however you like.
 
-**Optional: Install poppler for large PDF fallback**
+**System dependencies (developer install only)**
+
+CLI 모드(`npx tsx ...`)에서 음성 청크 분할 / PDF 라스터화 폴백을 쓰려면 `ffmpeg`/`poppler` 가 필요합니다.
 
 ```bash
-brew install poppler
+brew install ffmpeg poppler
 ```
 
-**Required for long audio (> 9 min): Install ffmpeg**
-
-```bash
-brew install ffmpeg
-```
+> Electron 앱(`.dmg`) 사용자는 위 의존성이 앱 안에 번들되어 있어 별도 설치 불필요.
 
 ---
 

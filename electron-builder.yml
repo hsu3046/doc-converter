@@ -1,0 +1,51 @@
+appId: space.knowai.doc-converter
+productName: Doc Converter
+copyright: Copyright © 2026 KnowAI
+
+# main entry — package.json "main" 과 일치
+files:
+  - "dist/**/*"
+  - "electron/**/*.cjs"
+  - "package.json"
+  - "!**/*.map"
+  - "!**/*.ts"
+  - "!**/*.d.ts"
+
+# 사용자 데이터 디렉토리는 코드에서 ~/Documents 와 ~/.doc-converter/ 로 직접 처리
+# extraResources 불필요 (빌트인 템플릿은 dist/src/meeting-templates/builtin/ 안에 포함)
+
+mac:
+  icon: build/icon.icns
+  category: public.app-category.productivity
+  target:
+    - target: dmg
+      arch:
+        - arm64
+        - x64
+  identity: null  # 코드 서명 X — 내부용
+  gatekeeperAssess: false
+  hardenedRuntime: false
+  notarize: false
+  # ffmpeg/ffprobe binaries 가 ASAR 안에 들어가면 실행권한 잃을 수 있어 unpack
+  extendInfo:
+    NSDocumentsFolderUsageDescription: "Doc Converter needs access to save output files to Documents."
+
+asar: true
+asarUnpack:
+  - "node_modules/@ffmpeg-installer/**"
+  - "node_modules/@ffprobe-installer/**"
+  - "node_modules/pdf-poppler/lib/**"
+
+dmg:
+  title: "Doc Converter ${version}"
+  contents:
+    - x: 130
+      y: 220
+    - x: 410
+      y: 220
+      type: link
+      path: /Applications
+
+directories:
+  output: dist-electron
+  buildResources: build

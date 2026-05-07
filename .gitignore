@@ -9,3 +9,7 @@ dist/
 
 # User output directory (default --output target)
 /output/
+
+# Electron build artifacts
+/dist-electron/
+/build/

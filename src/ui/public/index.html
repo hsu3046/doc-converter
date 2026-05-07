@@ -39,6 +39,7 @@
   header {
     text-align: center;
     margin-bottom: 3rem;
+    position: relative;
   }
   header h1 {
     font-size: 1.8rem;
@@ -114,6 +115,34 @@
   .icon-lg { width: 1.2em; height: 1.2em; vertical-align: -0.2em; }
   /* SVG가 한 줄에 같이 흐르도록 */
   i[data-lucide] { display: inline-flex; align-items: center; }
+  /* 다운로드 toast (Electron 전용) */
+  .toast {
+    position: fixed;
+    bottom: 1.5rem;
+    right: 1.5rem;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-left: 3px solid var(--success);
+    border-radius: 6px;
+    padding: 0.7rem 0.85rem;
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
+    z-index: 200;
+    max-width: 420px;
+    font-size: 0.875rem;
+    animation: toast-in 0.25s ease-out;
+  }
+  .toast.toast-out { animation: toast-out 0.25s ease-in forwards; }
+  .toast .toast-msg { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .toast .toast-msg b { color: var(--text); }
+  .toast button { background: transparent; border: 1px solid var(--border); color: var(--text); cursor: pointer; padding: 0.3rem 0.6rem; border-radius: 4px; font-size: 0.8rem; white-space: nowrap; }
+  .toast button:hover { background: var(--surface2); }
+  .toast .toast-close { padding: 0.2rem 0.45rem; color: var(--text-dim); border: 0; }
+  @keyframes toast-in { from { transform: translateY(20px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+  @keyframes toast-out { to { transform: translateY(20px); opacity: 0; } }
+
   /* Provider radio 그룹 */
   .radio-opt {
     display: inline-flex; align-items: center; gap: 0.35rem;
@@ -322,6 +351,11 @@
 
 <header>
   <h1><i data-lucide="book-headphones" class="icon-h1"></i> Doc Converter</h1>
+  <button id="settings-open-btn" onclick="openSettingsModal()" title="설정"
+    style="position:absolute;top:1rem;right:1rem;background:transparent;border:1px solid var(--border);color:var(--text-dim);cursor:pointer;padding:0.4rem 0.7rem;border-radius:6px;display:none;align-items:center;gap:0.35rem;font-size:0.85rem"
+    onmouseover="this.style.background='var(--surface2)'" onmouseout="this.style.background='transparent'">
+    <i data-lucide="settings" class="icon"></i> 설정
+  </button>
 </header>
 
 <div class="tabs">
@@ -549,6 +583,60 @@
       <div class="result-preview" id="notes-preview"></div>
       <div class="status-bar" id="notes-cost" style="border-top:none;padding-top:0"></div>
     </div>
+  </div>
+</div>
+
+<!-- ─── 설정 모달 (Electron 전용) ─────────────────────────────────── -->
+<div id="settings-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.6);z-index:100;align-items:center;justify-content:center;padding:1rem">
+  <div class="card" style="max-width:520px;width:100%;position:relative;padding:1.25rem 1.5rem">
+    <button onclick="closeSettingsModal()" title="닫기"
+      style="position:absolute;top:0.6rem;right:0.6rem;background:transparent;border:0;color:var(--text-dim);cursor:pointer;padding:0.35rem;border-radius:6px;display:inline-flex;align-items:center;justify-content:center"
+      onmouseover="this.style.background='var(--surface2)'" onmouseout="this.style.background='transparent'">
+      <i data-lucide="x" class="icon"></i>
+    </button>
+    <h2 style="margin-top:0;padding-right:1.5rem"><i data-lucide="settings" class="icon"></i> API 키 설정</h2>
+    <p style="color:var(--text-dim);font-size:0.875rem">
+      입력한 API 키는 macOS Keychain 에 안전하게 저장됩니다. 코드/디스크에 평문 저장되지 않습니다.
+    </p>
+
+    <div style="margin:1rem 0;display:flex;flex-direction:column;gap:1rem">
+      <div>
+        <label style="font-size:0.875rem;color:var(--text);display:flex;justify-content:space-between;align-items:center">
+          <span>GEMINI_API_KEY <span id="settings-gemini-status" style="color:var(--text-dim);font-size:0.75rem;margin-left:0.4rem"></span></span>
+          <a href="https://aistudio.google.com/apikey" target="_blank" style="font-size:0.75rem;color:var(--accent);text-decoration:none">발급 페이지 →</a>
+        </label>
+        <div style="display:flex;gap:0.4rem;margin-top:0.35rem">
+          <input type="password" id="settings-gemini-input" placeholder="AIza..."
+            style="flex:1;padding:0.4rem 0.6rem;background:var(--bg-input);color:var(--text);border:1px solid var(--border);border-radius:4px;font-family:monospace;font-size:0.875rem" />
+          <button class="btn-sm" onclick="saveSettingsKey('GEMINI_API_KEY','settings-gemini-input')">저장</button>
+          <button class="btn-sm" onclick="deleteSettingsKey('GEMINI_API_KEY')" style="color:var(--error)" title="삭제"><i data-lucide="trash-2" class="icon"></i></button>
+        </div>
+      </div>
+
+      <div>
+        <label style="font-size:0.875rem;color:var(--text);display:flex;justify-content:space-between;align-items:center">
+          <span>CLAUDE_API_KEY <span id="settings-claude-status" style="color:var(--text-dim);font-size:0.75rem;margin-left:0.4rem"></span></span>
+          <a href="https://console.anthropic.com/settings/keys" target="_blank" style="font-size:0.75rem;color:var(--accent);text-decoration:none">발급 페이지 →</a>
+        </label>
+        <div style="display:flex;gap:0.4rem;margin-top:0.35rem">
+          <input type="password" id="settings-claude-input" placeholder="sk-ant-..."
+            style="flex:1;padding:0.4rem 0.6rem;background:var(--bg-input);color:var(--text);border:1px solid var(--border);border-radius:4px;font-family:monospace;font-size:0.875rem" />
+          <button class="btn-sm" onclick="saveSettingsKey('CLAUDE_API_KEY','settings-claude-input')">저장</button>
+          <button class="btn-sm" onclick="deleteSettingsKey('CLAUDE_API_KEY')" style="color:var(--error)" title="삭제"><i data-lucide="trash-2" class="icon"></i></button>
+        </div>
+      </div>
+    </div>
+
+    <div id="settings-feedback" style="font-size:0.875rem;display:none;margin-top:0.5rem;padding:0.5rem;border-radius:4px"></div>
+
+    <hr style="border:0;border-top:1px solid var(--border);margin:1rem 0" />
+
+    <div style="font-size:0.875rem;color:var(--text-dim);margin-bottom:0.5rem">📂 폴더 바로가기</div>
+    <div style="display:flex;gap:0.5rem;flex-wrap:wrap">
+      <button class="btn-sm" onclick="window.docConverter.openOutputFolder()"><i data-lucide="folder-open" class="icon"></i> 출력 폴더</button>
+      <button class="btn-sm" onclick="window.docConverter.openTemplatesFolder()"><i data-lucide="folder-open" class="icon"></i> 템플릿 폴더</button>
+    </div>
+    <div id="settings-paths" style="font-size:0.72rem;color:var(--text-dim);margin-top:0.5rem;font-family:monospace;line-height:1.5"></div>
   </div>
 </div>
 
@@ -950,7 +1038,8 @@ let _audioState = null;       // { tsFilename, tsContent, cleanFilename, cleanCo
 let _audioOriginal = null;    // 동일 구조, 초기화용
 
 // 화자 라벨 패턴 — "**[HH:MM:SS] 화자A:** ..." 또는 "**화자A:** ..." (clean 버전)
-const SPEAKER_LINE_RE = /^\*\*(?:\[\d{2}:\d{2}:\d{2}\]\s+)?([^:*\n]+):\*\*\s*(.*)$/gm;
+// 타임스탬프 [HH:MM:SS] / [MM:SS] / [H:MM:SS] 모두 인식
+const SPEAKER_LINE_RE = /^\*\*(?:\[\d{1,2}:\d{2}(?::\d{2})?\]\s+)?([^:*\n]+):\*\*\s*(.*)$/gm;
 
 function parseSpeakerStats(text) {
   const stats = new Map();  // label -> { msgCount, charCount }
@@ -982,7 +1071,7 @@ function deleteSpeakerLines(text, label) {
   const escaped = label.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
   // 한 발화는 다음 화자 라벨 직전까지의 모든 줄
   const re = new RegExp(
-    `^\\*\\*(?:\\[\\d{2}:\\d{2}:\\d{2}\\]\\s+)?${escaped}:\\*\\*[\\s\\S]*?(?=^\\*\\*(?:\\[\\d{2}:\\d{2}:\\d{2}\\]\\s+)?[^:*\\n]+:\\*\\*|\\Z)`,
+    `^\\*\\*(?:\\[\\d{1,2}:\\d{2}(?::\\d{2})?\\]\\s+)?${escaped}:\\*\\*[\\s\\S]*?(?=^\\*\\*(?:\\[\\d{1,2}:\\d{2}(?::\\d{2})?\\]\\s+)?[^:*\\n]+:\\*\\*|\\Z)`,
     'gm',
   );
   return text.replace(re, '').replace(/\n{3,}/g, '\n\n').trim() + '\n';
@@ -992,7 +1081,7 @@ function deleteSpeakerLines(text, label) {
 function renameSpeakerInText(text, fromLabel, toLabel) {
   if (!toLabel || fromLabel === toLabel) return text;
   const escaped = fromLabel.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-  const re = new RegExp(`(\\*\\*(?:\\[\\d{2}:\\d{2}:\\d{2}\\]\\s+)?)${escaped}(:\\*\\*)`, 'g');
+  const re = new RegExp(`(\\*\\*(?:\\[\\d{1,2}:\\d{2}(?::\\d{2})?\\]\\s+)?)${escaped}(:\\*\\*)`, 'g');
   return text.replace(re, `$1${toLabel}$2`);
 }
 
@@ -1228,6 +1317,124 @@ function runNotesFromTab() {
     templateSelectId: 'notes-template',
     detailSelectId: 'notes-detail',
     providerRadioName: 'notes-provider',
+  });
+}
+
+// ─── Settings (Electron 전용) ──────────────────────────────
+function isElectron() {
+  return typeof window.docConverter !== 'undefined' && window.docConverter.isElectron;
+}
+
+async function refreshSettingsStatus() {
+  if (!isElectron()) return;
+  const status = await window.docConverter.getKeyStatus();
+  const setStatus = (id, set) => {
+    const el = document.getElementById(id);
+    if (el) el.textContent = set ? '· 저장됨 ✓' : '· 미설정';
+  };
+  setStatus('settings-gemini-status', !!status.GEMINI_API_KEY);
+  setStatus('settings-claude-status', !!status.CLAUDE_API_KEY);
+
+  try {
+    const paths = await window.docConverter.getFolderPaths();
+    const el = document.getElementById('settings-paths');
+    if (el) el.innerHTML = `출력: ${paths.output}<br>템플릿: ${paths.templates}`;
+  } catch {
+    // ignore
+  }
+}
+
+function openSettingsModal() {
+  document.getElementById('settings-gemini-input').value = '';
+  document.getElementById('settings-claude-input').value = '';
+  document.getElementById('settings-feedback').style.display = 'none';
+  refreshSettingsStatus();
+  document.getElementById('settings-modal').style.display = 'flex';
+  renderIcons();
+}
+
+function closeSettingsModal() {
+  document.getElementById('settings-modal').style.display = 'none';
+}
+
+function showSettingsFeedback(msg, isError) {
+  const el = document.getElementById('settings-feedback');
+  el.textContent = msg;
+  el.style.display = 'block';
+  el.style.background = isError ? 'rgba(248,113,113,0.15)' : 'rgba(74,222,128,0.15)';
+  el.style.color = isError ? 'var(--error)' : 'var(--success)';
+}
+
+async function saveSettingsKey(name, inputId) {
+  if (!isElectron()) return;
+  const value = document.getElementById(inputId).value;
+  if (!value || value.trim().length < 10) {
+    showSettingsFeedback('API 키를 입력해주세요 (최소 10자).', true);
+    return;
+  }
+  const result = await window.docConverter.setKey(name, value);
+  if (result.ok) {
+    showSettingsFeedback(`${name} 저장됨 (Keychain)`, false);
+    document.getElementById(inputId).value = '';
+    await refreshSettingsStatus();
+  } else {
+    showSettingsFeedback(`저장 실패: ${result.error || '알 수 없는 오류'}`, true);
+  }
+}
+
+async function deleteSettingsKey(name) {
+  if (!isElectron()) return;
+  if (!confirm(`${name} 을(를) Keychain 에서 삭제할까요?`)) return;
+  const result = await window.docConverter.deleteKey(name);
+  if (result.ok) {
+    showSettingsFeedback(`${name} 삭제됨`, false);
+    await refreshSettingsStatus();
+  } else {
+    showSettingsFeedback(`삭제 실패: ${result.error || '알 수 없는 오류'}`, true);
+  }
+}
+
+// Electron 모드일 때만 헤더 설정 버튼 표시
+if (isElectron()) {
+  const btn = document.getElementById('settings-open-btn');
+  if (btn) btn.style.display = 'inline-flex';
+}
+
+// ─── 다운로드 toast (Electron 전용) ─────────────────────────
+function showDownloadToast(filename, savedPath) {
+  const toast = document.createElement('div');
+  toast.className = 'toast';
+  // 안전한 path 임베딩 — dataset 으로 전달
+  const escapedFilename = filename.replace(/[<>&"]/g, (c) => ({ '<':'&lt;', '>':'&gt;', '&':'&amp;', '"':'&quot;' })[c]);
+  toast.innerHTML = `
+    <i data-lucide="check-circle-2" class="icon" style="color:var(--success)"></i>
+    <div class="toast-msg"><b>${escapedFilename}</b> · 저장됨</div>
+    <button class="toast-reveal">Finder 에서 보기</button>
+    <button class="toast-close" title="닫기">×</button>
+  `;
+  document.body.appendChild(toast);
+  renderIcons();
+
+  const dismiss = () => {
+    toast.classList.add('toast-out');
+    setTimeout(() => toast.remove(), 250);
+  };
+
+  toast.querySelector('.toast-reveal').onclick = () => {
+    if (window.docConverter && window.docConverter.revealInFinder) {
+      window.docConverter.revealInFinder(savedPath);
+    }
+    dismiss();
+  };
+  toast.querySelector('.toast-close').onclick = dismiss;
+
+  // 6초 후 자동 사라짐
+  setTimeout(dismiss, 6000);
+}
+
+if (isElectron() && window.docConverter.onDownloadComplete) {
+  window.docConverter.onDownloadComplete(({ filename, savedPath }) => {
+    showDownloadToast(filename, savedPath);
   });
 }
 

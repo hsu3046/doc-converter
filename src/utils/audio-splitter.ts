@@ -3,6 +3,8 @@ import { promisify } from 'node:util';
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import crypto from 'node:crypto';
+import ffmpegInstaller from '@ffmpeg-installer/ffmpeg';
+import ffprobeInstaller from '@ffprobe-installer/ffprobe';
 
 const execAsync = promisify(exec);
 
@@ -14,15 +16,13 @@ export interface AudioChunk {
 
 const CHUNK_SIZE_GUARD_MB = 150;
 
-async function ensureFfmpeg(): Promise<void> {
-  try {
-    await execAsync('which ffmpeg');
-    await execAsync('which ffprobe');
-  } catch {
-    throw new Error(
-      '오디오 청크 분할을 위해 ffmpeg가 설치되어 있어야 합니다. (brew install ffmpeg)'
-    );
-  }
+// 번들된 binary 절대경로 (시스템 PATH 의존 X — Electron 패키징에 안전)
+const FFMPEG: string = ffmpegInstaller.path;
+const FFPROBE: string = ffprobeInstaller.path;
+
+/** shell command 안에 path 안전하게 quote (공백 포함 절대경로 대비) */
+function q(p: string): string {
+  return `"${p.replace(/"/g, '\\"')}"`;
 }
 
 /**
@@ -34,10 +34,9 @@ async function ensureFfmpeg(): Promise<void> {
  * 메타데이터가 없으면 undefined.
  */
 export async function probeRecordingTime(filePath: string): Promise<Date | undefined> {
-  await ensureFfmpeg();
   try {
     const { stdout } = await execAsync(
-      `ffprobe -v quiet -print_format json -show_format "${filePath}"`,
+      `${q(FFPROBE)} -v quiet -print_format json -show_format ${q(filePath)}`,
     );
     const json = JSON.parse(stdout) as { format?: { tags?: Record<string, string> } };
     const tags = json.format?.tags ?? {};
@@ -64,9 +63,8 @@ export async function probeRecordingTime(filePath: string): Promise<Date | undef
  * ffprobe로 오디오 길이(초) 측정
  */
 export async function probeDuration(filePath: string): Promise<number> {
-  await ensureFfmpeg();
   const { stdout } = await execAsync(
-    `ffprobe -v error -show_entries format=duration -of default=noprint_wrappers=1:nokey=1 "${filePath}"`
+    `${q(FFPROBE)} -v error -show_entries format=duration -of default=noprint_wrappers=1:nokey=1 ${q(filePath)}`
   );
   const dur = parseFloat(stdout.trim());
   if (!Number.isFinite(dur) || dur <= 0) {
@@ -84,7 +82,6 @@ export async function splitAudioToChunks(
   filePath: string,
   chunkDurationSec: number
 ): Promise<AudioChunk[]> {
-  await ensureFfmpeg();
   const duration = await probeDuration(filePath);
   const numChunks = Math.ceil(duration / chunkDurationSec);
 
@@ -103,11 +100,11 @@ export async function splitAudioToChunks(
     // -c copy 가 실패하면 catch → 재인코딩 재시도.
     try {
       await execAsync(
-        `ffmpeg -y -ss ${intendedStart} -t ${chunkDurationSec} -i "${filePath}" -c copy -vn "${chunkPath}"`
+        `${q(FFMPEG)} -y -ss ${intendedStart} -t ${chunkDurationSec} -i ${q(filePath)} -c copy -vn ${q(chunkPath)}`
       );
     } catch {
       await execAsync(
-        `ffmpeg -y -ss ${intendedStart} -t ${chunkDurationSec} -i "${filePath}" -vn -acodec libmp3lame -b:a 128k "${chunkPath}"`
+        `${q(FFMPEG)} -y -ss ${intendedStart} -t ${chunkDurationSec} -i ${q(filePath)} -vn -acodec libmp3lame -b:a 128k ${q(chunkPath)}`
       );
     }
 
@@ -116,7 +113,7 @@ export async function splitAudioToChunks(
     if (stat.size > CHUNK_SIZE_GUARD_MB * 1024 * 1024) {
       await fs.unlink(chunkPath).catch(() => {});
       await execAsync(
-        `ffmpeg -y -ss ${intendedStart} -t ${chunkDurationSec} -i "${filePath}" -vn -acodec libmp3lame -b:a 64k "${chunkPath}"`
+        `${q(FFMPEG)} -y -ss ${intendedStart} -t ${chunkDurationSec} -i ${q(filePath)} -vn -acodec libmp3lame -b:a 64k ${q(chunkPath)}`
       );
     }
 
