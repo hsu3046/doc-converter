@@ -1,0 +1,11 @@
+node_modules/
+dist/
+.env
+.env.local
+*.log
+
+# Throwaway ad-hoc test scripts (per CLAUDE.md: not a test suite)
+/test*.ts
+
+# User output directory (default --output target)
+/output/

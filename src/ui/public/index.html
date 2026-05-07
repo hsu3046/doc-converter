@@ -1,0 +1,1270 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Doc Converter — 사건 기록 변환 도구</title>
+<!-- JSZip for bundled downloads -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+<!-- Lucide icons -->
+<script src="https://unpkg.com/lucide@0.469.0/dist/umd/lucide.min.js"></script>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg: #0f1117;
+    --surface: #1a1d27;
+    --surface2: #22263a;
+    --border: #2e3450;
+    --accent: #6c63ff;
+    --accent2: #4fc3f7;
+    --text: #e8eaf0;
+    --text-dim: #7b82a0;
+    --success: #4ade80;
+    --error: #f87171;
+    --warning: #fbbf24;
+    --radius: 12px;
+  }
+
+  body {
+    font-family: 'Inter', -apple-system, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    padding: 2rem 1rem;
+  }
+
+  header {
+    text-align: center;
+    margin-bottom: 3rem;
+  }
+  header h1 {
+    font-size: 1.8rem;
+    font-weight: 700;
+    color: var(--text);
+    margin-bottom: 0.4rem;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+  header h1 svg { stroke: currentColor; }
+  header p { color: var(--text-dim); font-size: 0.9rem; }
+
+  .tabs {
+    display: flex;
+    gap: 0.5rem;
+    justify-content: center;
+    margin-bottom: 2rem;
+  }
+  .tab-btn {
+    padding: 0.6rem 1.4rem;
+    border-radius: 100px;
+    border: 1px solid var(--border);
+    background: transparent;
+    color: var(--text-dim);
+    cursor: pointer;
+    font-family: inherit;
+    font-size: 0.88rem;
+    font-weight: 500;
+    transition: all 0.2s;
+  }
+  .tab-btn:hover { border-color: var(--accent); color: var(--text); }
+  .tab-btn.active {
+    background: var(--accent);
+    border-color: var(--accent);
+    color: #fff;
+  }
+
+  .panel { display: none; max-width: 640px; margin: 0 auto; }
+  .panel.active { display: block; }
+
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 1.8rem;
+    margin-bottom: 1.2rem;
+  }
+  .card h2 { font-size: 1rem; font-weight: 600; margin-bottom: 1.2rem; }
+
+  /* Drop zone */
+  .drop-zone {
+    border: 2px dashed var(--border);
+    border-radius: 10px;
+    padding: 2.5rem 1rem;
+    text-align: center;
+    cursor: pointer;
+    transition: all 0.2s;
+    position: relative;
+  }
+  .drop-zone:hover, .drop-zone.dragover {
+    border-color: var(--accent);
+    background: rgba(108,99,255,0.05);
+  }
+  .drop-zone input[type=file] {
+    position: absolute; inset: 0; opacity: 0; cursor: pointer; width: 100%; height: 100%;
+  }
+  .drop-icon { font-size: 2.5rem; margin-bottom: 0.7rem; display: flex; justify-content: center; }
+  .drop-icon svg { width: 2.5rem; height: 2.5rem; }
+  /* Lucide inline icons — 텍스트 옆에 자연스럽게 들어감 */
+  .icon { display: inline-block; vertical-align: -0.15em; width: 1em; height: 1em; stroke-width: 2; }
+  .icon-h1 { width: 1.1em; height: 1.1em; vertical-align: -0.1em; }
+  .icon-lg { width: 1.2em; height: 1.2em; vertical-align: -0.2em; }
+  /* SVG가 한 줄에 같이 흐르도록 */
+  i[data-lucide] { display: inline-flex; align-items: center; }
+  /* Provider radio 그룹 */
+  .radio-opt {
+    display: inline-flex; align-items: center; gap: 0.35rem;
+    font-size: 0.875rem; color: var(--text); cursor: pointer;
+    padding: 0.3rem 0.6rem; background: var(--bg-input);
+    border: 1px solid var(--border); border-radius: 4px;
+  }
+  .radio-opt input[type="radio"] { accent-color: var(--accent); cursor: pointer; }
+  .radio-opt:has(input:checked) { border-color: var(--accent); background: rgba(108,99,255,0.1); }
+  .drop-label { font-size: 0.9rem; color: var(--text-dim); }
+  .drop-label strong { color: var(--accent); }
+  .file-accepted { margin-top: 0.8rem; font-size: 0.82rem; color: var(--text-dim); }
+
+  /* Options */
+  .option-row {
+    display: flex;
+    align-items: center;
+    gap: 0.7rem;
+    margin-top: 1rem;
+    font-size: 0.88rem;
+    color: var(--text-dim);
+  }
+  .toggle {
+    width: 36px; height: 20px;
+    background: var(--surface2);
+    border-radius: 100px;
+    position: relative;
+    cursor: pointer;
+    border: 1px solid var(--border);
+    transition: background 0.2s;
+    flex-shrink: 0;
+  }
+  .toggle::after {
+    content: '';
+    position: absolute;
+    top: 2px; left: 2px;
+    width: 14px; height: 14px;
+    background: var(--text-dim);
+    border-radius: 50%;
+    transition: all 0.2s;
+  }
+  .toggle.on { background: var(--accent); border-color: var(--accent); }
+  .toggle.on::after { left: 18px; background: #fff; }
+
+  /* Button */
+  .btn {
+    display: block;
+    width: 100%;
+    padding: 0.85rem;
+    margin-top: 1.2rem;
+    background: var(--accent);
+    color: #fff;
+    border: none;
+    border-radius: 8px;
+    font-family: inherit;
+    font-size: 0.95rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: opacity 0.2s, transform 0.1s;
+  }
+  .btn:hover:not(:disabled) { opacity: 0.88; }
+  .btn:active:not(:disabled) { transform: scale(0.99); }
+  .btn:disabled { opacity: 0.4; cursor: not-allowed; }
+  .btn.loading::after {
+    content: ' ●●●';
+    animation: blink 1.2s infinite;
+  }
+  @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0.2} }
+
+  /* Result area */
+  .result-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    overflow: hidden;
+  }
+  .result-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0.9rem 1.2rem;
+    border-bottom: 1px solid var(--border);
+    font-size: 0.85rem;
+    font-weight: 500;
+  }
+  .result-badge {
+    padding: 0.2rem 0.7rem;
+    border-radius: 100px;
+    font-size: 0.75rem;
+    font-weight: 600;
+  }
+  .badge-success { background: rgba(74,222,128,0.15); color: var(--success); }
+  .badge-error   { background: rgba(248,113,113,0.15); color: var(--error); }
+  .badge-cost    { background: rgba(251,191,36,0.12);  color: var(--warning); font-size: 0.75rem; font-weight: 600; padding: 0.2rem 0.7rem; border-radius: 100px; }
+
+  /* ─── 진행상황 패널 ─── */
+  .progress-panel {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    overflow: hidden;
+    margin-bottom: 1.2rem;
+  }
+  .progress-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0.85rem 1.2rem;
+    border-bottom: 1px solid var(--border);
+    font-size: 0.85rem;
+    font-weight: 600;
+  }
+  .progress-timer { font-size: 0.78rem; color: var(--accent2); font-weight: 500; }
+  .progress-bar-wrap {
+    height: 3px;
+    background: var(--surface2);
+    position: relative;
+  }
+  .progress-bar {
+    height: 100%;
+    background: linear-gradient(90deg, var(--accent), var(--accent2));
+    width: 0%;
+    transition: width 0.4s ease;
+  }
+  .progress-bar.indeterminate {
+    width: 40%;
+    animation: slide 1.5s infinite ease-in-out;
+  }
+  @keyframes slide {
+    0%   { transform: translateX(-100%); }
+    100% { transform: translateX(350%); }
+  }
+  .progress-log {
+    padding: 0.8rem 1.2rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.45rem;
+    max-height: 180px;
+    overflow-y: auto;
+  }
+  .progress-step {
+    font-size: 0.82rem;
+    color: var(--text-dim);
+    display: flex;
+    flex-direction: column;
+    gap: 0.15rem;
+    animation: fadeIn 0.25s ease;
+  }
+  .progress-step.current { color: var(--text); }
+  .progress-step .step-main { font-size: 0.84rem; }
+  .progress-step .step-detail { font-size: 0.74rem; color: var(--text-dim); opacity: 0.7; }
+  @keyframes fadeIn { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
+
+  .result-actions { display: flex; gap: 0.5rem; }
+  .btn-sm {
+    padding: 0.35rem 0.9rem;
+    border-radius: 6px;
+    border: 1px solid var(--border);
+    background: var(--surface2);
+    color: var(--text);
+    font-family: inherit;
+    font-size: 0.8rem;
+    cursor: pointer;
+    transition: border-color 0.15s;
+  }
+  .btn-sm:hover { border-color: var(--accent); }
+
+  .result-preview {
+    padding: 1.2rem;
+    font-family: 'Courier New', monospace;
+    font-size: 0.8rem;
+    color: var(--text-dim);
+    white-space: pre-wrap;
+    max-height: 320px;
+    overflow-y: auto;
+    line-height: 1.6;
+  }
+
+  .file-list { padding: 0.8rem 1.2rem; display: flex; flex-direction: column; gap: 0.5rem; }
+  .file-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0.6rem 0.8rem;
+    background: var(--surface2);
+    border-radius: 8px;
+    font-size: 0.85rem;
+  }
+  .file-item-name { color: var(--text-dim); }
+
+  .status-bar {
+    padding: 0.7rem 1.2rem;
+    font-size: 0.82rem;
+    color: var(--text-dim);
+    border-top: 1px solid var(--border);
+  }
+  .status-bar.err { color: var(--error); }
+
+  /* Scrollbar */
+  ::-webkit-scrollbar { width: 6px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+</style>
+</head>
+<body>
+
+<header>
+  <h1><i data-lucide="book-headphones" class="icon-h1"></i> Doc Converter</h1>
+</header>
+
+<div class="tabs">
+  <button class="tab-btn active" onclick="switchTab('audio')"><i data-lucide="mic" class="icon"></i> 음성-텍스트 변환</button>
+  <button class="tab-btn" onclick="switchTab('notes')"><i data-lucide="notebook-pen" class="icon"></i> 회의록 작성</button>
+  <button class="tab-btn" onclick="switchTab('ocr')"><i data-lucide="pen-tool" class="icon"></i> 이미지-텍스트 변환</button>
+  <button class="tab-btn" onclick="switchTab('chat')"><i data-lucide="message-circle" class="icon"></i> 채팅로그 분할</button>
+</div>
+
+<!-- ─── OCR 패널 ─────────────────────────────────── -->
+<div id="panel-ocr" class="panel">
+  <div class="card">
+    <h2>이미지 → 텍스트</h2>
+
+    <div class="drop-zone" id="ocr-drop">
+      <input type="file" id="ocr-file" accept=".png,.jpg,.jpeg,.webp,.gif,.pdf" />
+      <div class="drop-icon"><i data-lucide="file-text"></i></div>
+      <div class="drop-label">파일을 드래그하거나 <strong>클릭해서 선택</strong></div>
+      <div class="file-accepted">PNG · JPEG · WebP · PDF (최대 250MB)</div>
+    </div>
+
+    <div class="option-row">
+      <div class="toggle" id="quick-toggle" onclick="toggleQuick()"></div>
+      <span>속도 우선</span>
+    </div>
+
+    <button class="btn" id="ocr-btn" onclick="runOcr()" disabled>변환 시작</button>
+  </div>
+
+  <div id="ocr-progress" style="display:none"></div>
+
+  <div id="ocr-result" style="display:none">
+    <div class="result-card">
+      <div class="result-header">
+        <span id="ocr-filename"></span>
+        <div class="result-actions">
+          <button class="btn-sm" onclick="copyResult('ocr-preview')">복사</button>
+          <button class="btn-sm" id="ocr-download-btn">다운로드</button>
+        </div>
+      </div>
+      <div class="result-preview" id="ocr-preview"></div>
+      <div class="status-bar" id="ocr-status"></div>
+      <div class="status-bar" id="ocr-cost" style="border-top:none;padding-top:0"></div>
+    </div>
+  </div>
+</div>
+
+<!-- ─── 음성 패널 ─────────────────────────────────── -->
+<div id="panel-audio" class="panel active">
+  <div class="card">
+    <h2>음성 파일 → 텍스트 파일</h2>
+
+    <div class="drop-zone" id="audio-drop">
+      <input type="file" id="audio-file" accept=".mp3,.wav,.m4a,.aac,.ogg,.flac,.wma" />
+      <div class="drop-icon"><i data-lucide="audio-lines"></i></div>
+      <div class="drop-label">파일을 드래그하거나 <strong>클릭해서 선택</strong></div>
+      <div class="file-accepted">MP3 · WAV · M4A · AAC · OGG · FLAC (최대 250MB · 약 2시간)</div>
+    </div>
+
+    <button class="btn" id="audio-btn" onclick="runAudio()" disabled>변환 시작</button>
+  </div>
+
+  <div id="audio-progress" style="display:none"></div>
+
+  <div id="audio-result" style="display:none">
+    <!-- 화자 관리 카드 -->
+    <div class="result-card" style="margin-bottom:1rem">
+      <div class="result-header">
+        <span><i data-lucide="users" class="icon"></i> 화자 관리</span>
+        <button class="btn-sm" onclick="resetSpeakers()" title="원본으로 되돌리기"><i data-lucide="rotate-ccw" class="icon"></i> 초기화</button>
+      </div>
+      <div style="padding:0.75rem 1rem;color:var(--text-dim);font-size:0.8rem">
+        라벨을 클릭해 이름 변경. 발화 비율(글자수)이 낮은 화자가 잡음일 가능성이 높습니다.
+      </div>
+      <div id="speaker-list" style="padding:0 1rem 1rem;display:flex;flex-direction:column;gap:0.4rem"></div>
+    </div>
+
+    <div class="result-card">
+      <div class="result-header">
+        <span><i data-lucide="clock" class="icon"></i> 타임스탬프 버전</span>
+        <div class="result-actions">
+          <button class="btn-sm" onclick="copyResult('audio-ts-preview')">복사</button>
+          <button class="btn-sm" id="audio-ts-download">다운로드</button>
+        </div>
+      </div>
+      <div class="result-preview" id="audio-ts-preview"></div>
+    </div>
+
+    <div class="result-card" style="margin-top:1rem">
+      <div class="result-header">
+        <span><i data-lucide="sparkles" class="icon"></i> 클린 버전</span>
+        <div class="result-actions">
+          <button class="btn-sm" onclick="copyResult('audio-clean-preview')">복사</button>
+          <button class="btn-sm" id="audio-clean-download">다운로드</button>
+        </div>
+      </div>
+      <div class="result-preview" id="audio-clean-preview"></div>
+      <div class="status-bar" id="audio-status"></div>
+      <div class="status-bar" id="audio-cost" style="border-top:none;padding-top:0"></div>
+    </div>
+
+    <!-- 인라인 회의록 작성 카드 -->
+    <div class="result-card" style="margin-top:1rem">
+      <div class="result-header">
+        <span><i data-lucide="notebook-pen" class="icon"></i> 회의록 작성</span>
+      </div>
+      <div style="padding:1rem;display:flex;flex-direction:column;gap:0.75rem">
+        <div style="display:flex;gap:0.5rem;align-items:center;flex-wrap:wrap">
+          <label style="font-size:0.875rem;color:var(--text-dim)">템플릿:</label>
+          <select id="audio-notes-template" style="flex:1;min-width:160px;padding:0.4rem;background:var(--bg-input);color:var(--text);border:1px solid var(--border);border-radius:4px"></select>
+          <button class="btn-sm" onclick="refreshTemplates()" title="새로고침"><i data-lucide="refresh-cw" class="icon"></i></button>
+          <button class="btn-sm" onclick="openTemplateUpload()">+ 업로드</button>
+        </div>
+        <div style="display:flex;gap:0.5rem;align-items:center;flex-wrap:wrap">
+          <label style="font-size:0.875rem;color:var(--text-dim)">상세도:</label>
+          <select id="audio-notes-detail" style="flex:1;min-width:160px;padding:0.4rem;background:var(--bg-input);color:var(--text);border:1px solid var(--border);border-radius:4px">
+            <option value="concise">간결 — 핵심만 5~7줄</option>
+            <option value="standard" selected>표준 — 균형 있게</option>
+            <option value="detailed">상세 — 토픽별 단락 + 인용</option>
+            <option value="verbatim">축어록 가까운 — 원문 인용 多</option>
+          </select>
+        </div>
+        <div style="display:flex;gap:1rem;align-items:center;flex-wrap:wrap">
+          <label style="font-size:0.875rem;color:var(--text-dim)">모델:</label>
+          <label class="radio-opt"><input type="radio" name="audio-notes-provider" value="claude" checked /> Claude Sonnet 4.6</label>
+          <label class="radio-opt"><input type="radio" name="audio-notes-provider" value="gemini" /> Gemini 3.1 Pro</label>
+        </div>
+        <button class="btn" id="audio-notes-btn" onclick="runNotesFromAudio()"><i data-lucide="notebook-pen" class="icon"></i> 회의록 작성</button>
+      </div>
+      <div id="audio-notes-progress" style="display:none"></div>
+      <div id="audio-notes-result" style="display:none">
+        <div class="result-header" style="border-top:1px solid var(--border)">
+          <span id="audio-notes-filename"></span>
+          <div class="result-actions">
+            <button class="btn-sm" onclick="copyResult('audio-notes-preview')">복사</button>
+            <button class="btn-sm" id="audio-notes-download">다운로드</button>
+          </div>
+        </div>
+        <div class="result-preview" id="audio-notes-preview"></div>
+        <div class="status-bar" id="audio-notes-cost" style="border-top:none;padding-top:0"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ─── 채팅 패널 ─────────────────────────────────── -->
+<div id="panel-chat" class="panel">
+  <div class="card">
+    <h2>채팅 로그 → 날짜별 문서</h2>
+
+    <div class="drop-zone" id="chat-drop">
+      <input type="file" id="chat-file" accept=".csv,.html" />
+      <div class="drop-icon"><i data-lucide="message-circle"></i></div>
+      <div class="drop-label">파일을 드래그하거나 <strong>클릭해서 선택</strong></div>
+      <div class="file-accepted">카카오톡 CSV · 인스타그램 HTML (최대 250MB)</div>
+    </div>
+
+    <button class="btn" id="chat-btn" onclick="runChat()" disabled>분할 시작</button>
+  </div>
+
+  <div id="chat-result" style="display:none">
+    <div class="result-card">
+      <div class="result-header">
+        <span id="chat-count"></span>
+        <button class="btn-sm" onclick="downloadAllChat()">전체 다운로드</button>
+      </div>
+      <div class="file-list" id="chat-file-list"></div>
+      <div class="status-bar" id="chat-status"></div>
+    </div>
+  </div>
+</div>
+
+<!-- ─── 미팅 노트 패널 ─────────────────────────────────── -->
+<div id="panel-notes" class="panel">
+  <div class="card">
+    <h2>미팅 기록 → 회의록</h2>
+
+    <div class="drop-zone" id="notes-drop" style="margin-bottom:0.75rem">
+      <input type="file" id="notes-file" accept=".md,.txt" />
+      <div class="drop-icon"><i data-lucide="file-text"></i></div>
+      <div class="drop-label">파일을 드래그하거나 <strong>클릭해서 선택</strong></div>
+      <div class="file-accepted">MD · TXT (최대 5MB · 아래 박스에 직접 붙여넣기 가능)</div>
+    </div>
+
+    <textarea id="notes-textarea" placeholder="여기에 미팅 기록을 붙여넣으세요..."
+      style="width:100%;min-height:160px;padding:0.75rem;background:var(--bg-input);color:var(--text);border:1px solid var(--border);border-radius:4px;font-family:monospace;font-size:0.875rem;resize:vertical"></textarea>
+
+    <div style="display:flex;gap:0.5rem;align-items:center;flex-wrap:wrap;margin-top:0.75rem">
+      <label style="font-size:0.875rem;color:var(--text-dim)">템플릿:</label>
+      <select id="notes-template" style="flex:1;min-width:160px;padding:0.4rem;background:var(--bg-input);color:var(--text);border:1px solid var(--border);border-radius:4px"></select>
+      <button class="btn-sm" onclick="refreshTemplates()" title="새로고침"><i data-lucide="refresh-cw" class="icon"></i></button>
+      <button class="btn-sm" onclick="openTemplateUpload()">+ 업로드</button>
+    </div>
+
+    <div style="display:flex;gap:0.5rem;align-items:center;flex-wrap:wrap;margin-top:0.5rem">
+      <label style="font-size:0.875rem;color:var(--text-dim)">상세도:</label>
+      <select id="notes-detail" style="flex:1;min-width:160px;padding:0.4rem;background:var(--bg-input);color:var(--text);border:1px solid var(--border);border-radius:4px">
+        <option value="concise">간결 — 핵심만 5~7줄</option>
+        <option value="standard" selected>표준 — 균형 있게</option>
+        <option value="detailed">상세 — 토픽별 단락 + 인용</option>
+        <option value="verbatim">축어록 가까운 — 원문 인용 多</option>
+      </select>
+    </div>
+
+    <div style="display:flex;gap:1rem;align-items:center;flex-wrap:wrap;margin-top:0.5rem">
+      <label style="font-size:0.875rem;color:var(--text-dim)">모델:</label>
+      <label class="radio-opt"><input type="radio" name="notes-provider" value="claude" checked /> Claude Sonnet 4.6</label>
+      <label class="radio-opt"><input type="radio" name="notes-provider" value="gemini" /> Gemini 3.1 Pro</label>
+    </div>
+
+    <button class="btn" id="notes-btn" onclick="runNotesFromTab()" style="margin-top:0.75rem"><i data-lucide="notebook-pen" class="icon"></i> 회의록 작성</button>
+  </div>
+
+  <div id="notes-progress" style="display:none"></div>
+
+  <div id="notes-result" style="display:none">
+    <div class="result-card">
+      <div class="result-header">
+        <span id="notes-filename"></span>
+        <div class="result-actions">
+          <button class="btn-sm" onclick="copyResult('notes-preview')">복사</button>
+          <button class="btn-sm" id="notes-download">다운로드</button>
+        </div>
+      </div>
+      <div class="result-preview" id="notes-preview"></div>
+      <div class="status-bar" id="notes-cost" style="border-top:none;padding-top:0"></div>
+    </div>
+  </div>
+</div>
+
+<!-- ─── 템플릿 업로드 모달 ─────────────────────────────────── -->
+<div id="template-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.6);z-index:100;align-items:center;justify-content:center;padding:1rem">
+  <div class="card" style="max-width:480px;width:100%;position:relative;padding:1.25rem 1.5rem">
+    <button onclick="closeTemplateUpload()" title="닫기"
+      style="position:absolute;top:0.6rem;right:0.6rem;background:transparent;border:0;color:var(--text-dim);cursor:pointer;padding:0.35rem;border-radius:6px;display:inline-flex;align-items:center;justify-content:center"
+      onmouseover="this.style.background='var(--surface2)'" onmouseout="this.style.background='transparent'">
+      <i data-lucide="x" class="icon"></i>
+    </button>
+    <h2 style="margin-top:0;padding-right:1.5rem"><i data-lucide="clipboard-list" class="icon"></i> 템플릿 업로드</h2>
+    <p style="color:var(--text-dim);font-size:0.875rem">
+      .md 파일을 업로드하세요. 첫 줄은 <code>---</code> frontmatter 로 시작해야 하며,
+      <code>name:</code> 필드가 필수입니다.
+    </p>
+    <div style="display:flex;align-items:center;gap:0.6rem;margin:0.85rem 0">
+      <label for="template-upload-file" class="btn-sm" style="cursor:pointer;white-space:nowrap">업로드 파일 선택</label>
+      <span id="template-upload-filename" style="color:var(--text-dim);font-size:0.875rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">선택된 파일 없음</span>
+      <input type="file" id="template-upload-file" accept=".md" style="display:none"
+        onchange="document.getElementById('template-upload-filename').textContent = this.files[0] ? this.files[0].name : '선택된 파일 없음'" />
+    </div>
+    <div id="template-upload-error" style="color:var(--error);font-size:0.875rem;display:none;margin-bottom:0.5rem"></div>
+    <div style="display:flex;justify-content:flex-end">
+      <button class="btn" onclick="submitTemplateUpload()" style="padding:0.4rem 1.25rem">업로드</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ─── Lucide 아이콘 헬퍼 ───────────────────────────────────
+const EMOJI_MAP = {
+  '⚖️': 'scale', '🖊️': 'pen-tool', '🎙️': 'mic', '💬': 'message-circle',
+  '📝': 'notebook-pen', '📄': 'file-text', '🎵': 'music-2', '👥': 'users',
+  '🕐': 'clock', '✨': 'sparkles', '🔄': 'refresh-cw', '📑': 'clipboard-list',
+  '📤': 'upload', '📊': 'bar-chart-2', '🔪': 'scissors', '✅': 'check-circle-2',
+  '❌': 'x-circle', '⚠️': 'alert-triangle', '🧠': 'brain', '🎭': 'venetian-mask',
+  '📡': 'satellite-dish', '📋': 'clipboard', '💰': 'wallet', '🎯': 'target',
+  '📌': 'pin', '🧭': 'compass', '✔': 'check', '✔️': 'check', '🗑️': 'trash-2',
+  '📦': 'package', '👤': 'user', '🎤': 'mic', '📅': 'calendar',
+  '🚀': 'rocket', '↺': 'rotate-ccw', '⏳': 'hourglass', '⚙️': 'settings',
+  '🎨': 'palette', '🔍': 'search', '🎙': 'mic',
+};
+const _emojiKeysSorted = Object.keys(EMOJI_MAP).sort((a, b) => b.length - a.length);
+
+function emojiToIconHtml(text) {
+  if (text == null) return '';
+  let s = String(text);
+  for (const e of _emojiKeysSorted) {
+    if (s.includes(e)) {
+      const replacement = `<i data-lucide="${EMOJI_MAP[e]}" class="icon"></i>`;
+      s = s.split(e).join(replacement);
+    }
+  }
+  return s;
+}
+
+function renderIcons() {
+  if (window.lucide && lucide.createIcons) lucide.createIcons();
+}
+
+// ─── 상태 ────────────────────────────────────────────────
+let quickMode = false;
+let chatFiles = [];
+let _elapsedTimer = null;
+
+// ─── 비용 포맷 헬퍼 ─────────────────────────────────────
+function formatCostBadge(cost) {
+  if (!cost) return '';
+  const usd = cost.totalCostUsd.toFixed(5);
+  const inTok = cost.totalInputTokens.toLocaleString();
+  const outTok = cost.totalOutputTokens.toLocaleString();
+  const parts = cost.breakdown.map((u, i) => {
+    const label = cost.breakdown.length > 1 ? `Pass${i+1} ` : '';
+    return `${label}<b>${u.model.replace('gemini-', '')}</b>: $${u.costUsd.toFixed(5)}`;
+  }).join(' + ');
+  return `<i data-lucide="wallet" class="icon"></i> <span class="badge-cost">$${usd} USD</span> &nbsp; 입력 ${inTok} / 출력 ${outTok} 토큰<br>
+    <small style="color:var(--text-dim);font-size:0.75rem">${parts}</small>`;
+}
+
+// ─── 진행상황 패널 ────────────────────────────────────────
+function showProgress(panelId, title) {
+  const panel = document.getElementById(panelId);
+  panel.innerHTML = `
+    <div class="progress-header">
+      <span>${emojiToIconHtml(title)}</span>
+      <span class="progress-timer" id="${panelId}-timer">0.0초</span>
+    </div>
+    <div class="progress-bar-wrap">
+      <div class="progress-bar indeterminate" id="${panelId}-bar"></div>
+    </div>
+    <div class="progress-log" id="${panelId}-log"></div>
+  `;
+  panel.style.display = 'block';
+  renderIcons();
+
+  // 경과시간 타이머
+  clearInterval(_elapsedTimer);
+  const start = Date.now();
+  const timerEl = document.getElementById(`${panelId}-timer`);
+  _elapsedTimer = setInterval(() => {
+    if (timerEl) timerEl.textContent = `${((Date.now() - start) / 1000).toFixed(1)}초`;
+  }, 100);
+}
+
+function addProgressStep(panelId, step, detail) {
+  const log = document.getElementById(`${panelId}-log`);
+  if (!log) return;
+  // 이전 current 제거
+  log.querySelectorAll('.progress-step').forEach(el => el.classList.remove('current'));
+  const div = document.createElement('div');
+  div.className = 'progress-step current';
+  div.innerHTML = `<span class="step-main">${emojiToIconHtml(step)}</span>${detail ? `<span class="step-detail">${emojiToIconHtml(detail)}</span>` : ''}`;
+  log.appendChild(div);
+  log.scrollTop = log.scrollHeight;
+  renderIcons();
+}
+
+function finishProgress(panelId, percent = 100) {
+  clearInterval(_elapsedTimer);
+  const bar = document.getElementById(`${panelId}-bar`);
+  if (bar) { bar.classList.remove('indeterminate'); bar.style.width = percent + '%'; }
+}
+
+// ─── SSE 공통 헬퍼 ───────────────────────────────────────
+function startSse({
+  uploadUrl, formData, panelId, progressTitle,
+  onResult, onError,
+}) {
+  showProgress(panelId, progressTitle);
+
+  fetch(uploadUrl, { method: 'POST', body: formData })
+    .then(r => r.json())
+    .then(({ jobId, error }) => {
+      if (error || !jobId) throw new Error(error ?? 'Job 생성 실패');
+
+      const sse = new EventSource(`/api/progress/${jobId}`);
+
+      sse.addEventListener('progress', e => {
+        const { step, detail } = JSON.parse(e.data);
+        addProgressStep(panelId, step, detail);
+      });
+
+      sse.addEventListener('result', e => {
+        sse.close();
+        finishProgress(panelId);
+        onResult(JSON.parse(e.data));
+      });
+
+      sse.addEventListener('error', e => {
+        sse.close();
+        finishProgress(panelId, 0);
+        try {
+          onError(JSON.parse(e.data).message);
+        } catch {
+          onError('서버 연결 오류');
+        }
+      });
+    })
+    .catch(err => {
+      finishProgress(panelId, 0);
+      onError(err.message);
+    });
+}
+
+// ─── 탭 전환 ────────────────────────────────────────────
+function switchTab(name) {
+  document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById('panel-' + name).classList.add('active');
+  event.currentTarget.classList.add('active');
+}
+
+// ─── 빠른 모드 토글 ─────────────────────────────────────
+function toggleQuick() {
+  quickMode = !quickMode;
+  document.getElementById('quick-toggle').classList.toggle('on', quickMode);
+}
+
+// ─── 파일 Pick → 버튼 활성화 ────────────────────────────
+function setupDrop(dropId, inputId, btnId) {
+  const drop = document.getElementById(dropId);
+  const input = document.getElementById(inputId);
+  const btn = document.getElementById(btnId);
+
+  input.addEventListener('change', () => {
+    if (input.files.length > 0) {
+      btn.disabled = false;
+      drop.querySelector('.drop-label').innerHTML =
+        `<strong style="color:var(--success)"><i data-lucide="check" class="icon"></i> ${input.files[0].name}</strong>`;
+      renderIcons();
+    }
+  });
+  drop.addEventListener('dragover', e => { e.preventDefault(); drop.classList.add('dragover'); });
+  drop.addEventListener('dragleave', () => drop.classList.remove('dragover'));
+  drop.addEventListener('drop', e => {
+    e.preventDefault();
+    drop.classList.remove('dragover');
+    
+    if (e.dataTransfer.files.length === 0) return;
+    const file = e.dataTransfer.files[0];
+
+    // 현재 탭의 허용 확장자(Accept) 검사
+    const acceptAttr = input.getAttribute('accept');
+    if (acceptAttr) {
+      const allowedExts = acceptAttr.split(',').map(ex => ex.trim().toLowerCase());
+      const fileNameStr = file.name.toLowerCase();
+      // 점 기준으로 확장자 찾기 (예: .csv)
+      const dotIndex = fileNameStr.lastIndexOf('.');
+      const fileExt = dotIndex !== -1 ? fileNameStr.substring(dotIndex) : '';
+      
+      if (!allowedExts.includes(fileExt)) {
+        alert(`❌ [잘못된 탭에 파일 업로드]\n\n현재 열려있는 탭은 ${acceptAttr} 전용입니다.\n올리신 파일(${fileExt})을 처리할 수 있는 올바른 상단 탭(OCR, 음성, 채팅)을 클릭해주세요!`);
+        return;
+      }
+    }
+
+    const dt = new DataTransfer();
+    dt.items.add(file);
+    input.files = dt.files;
+    input.dispatchEvent(new Event('change'));
+  });
+}
+
+setupDrop('ocr-drop', 'ocr-file', 'ocr-btn');
+setupDrop('audio-drop', 'audio-file', 'audio-btn');
+setupDrop('chat-drop', 'chat-file', 'chat-btn');
+
+// notes-drop은 .md 파일 드롭 시 textarea로 내용 읽어옴 (별도 처리)
+(function setupNotesDrop() {
+  const drop = document.getElementById('notes-drop');
+  const input = document.getElementById('notes-file');
+  const textarea = document.getElementById('notes-textarea');
+  const handleFile = async (file) => {
+    const text = await file.text();
+    textarea.value = text;
+    drop.querySelector('.drop-label').innerHTML =
+      `<strong style="color:var(--success)"><i data-lucide="check" class="icon"></i> ${file.name} (${text.length.toLocaleString()}자)</strong>`;
+    renderIcons();
+  };
+  input.addEventListener('change', () => {
+    if (input.files.length > 0) handleFile(input.files[0]);
+  });
+  drop.addEventListener('dragover', e => { e.preventDefault(); drop.classList.add('dragover'); });
+  drop.addEventListener('dragleave', () => drop.classList.remove('dragover'));
+  drop.addEventListener('drop', e => {
+    e.preventDefault();
+    drop.classList.remove('dragover');
+    if (e.dataTransfer.files.length === 0) return;
+    handleFile(e.dataTransfer.files[0]);
+  });
+})();
+
+// ─── 복사 ────────────────────────────────────────────────
+function copyResult(previewId) {
+  const text = document.getElementById(previewId).textContent;
+  navigator.clipboard.writeText(text).then(() => alert('클립보드에 복사됐습니다.'));
+}
+
+// ─── 다운로드 헬퍼 ──────────────────────────────────────
+function downloadText(filename, content) {
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([content], { type: 'text/markdown' }));
+  a.download = filename;
+  a.click();
+}
+
+// ─── OCR ────────────────────────────────────────────────
+function runOcr() {
+  const file = document.getElementById('ocr-file').files[0];
+  if (!file) return;
+
+  const btn = document.getElementById('ocr-btn');
+  btn.disabled = true;
+  btn.textContent = '처리 중…';
+  document.getElementById('ocr-result').style.display = 'none';
+
+  const form = new FormData();
+  form.append('file', file);
+  form.append('quick', quickMode ? 'true' : 'false');
+
+  startSse({
+    uploadUrl: '/api/ocr',
+    formData: form,
+    panelId: 'ocr-progress',
+    progressTitle: '📄 OCR 변환 진행 중',
+    onResult(data) {
+      btn.disabled = false;
+      btn.textContent = '변환 시작';
+      document.getElementById('ocr-filename').textContent = data.filename;
+      document.getElementById('ocr-preview').textContent = data.content;
+      document.getElementById('ocr-status').innerHTML = emojiToIconHtml(`✅ 변환 완료 — ${data.content.length}자`);
+      renderIcons();
+      document.getElementById('ocr-cost').innerHTML = formatCostBadge(data.cost);
+      document.getElementById('ocr-download-btn').onclick = () => downloadText(data.filename, data.content);
+      document.getElementById('ocr-result').style.display = 'block';
+    },
+    onError(msg) {
+      btn.disabled = false;
+      btn.textContent = '변환 시작';
+      addProgressStep('ocr-progress', '❌ ' + msg);
+    },
+  });
+}
+
+
+// ─── 음성 ────────────────────────────────────────────────
+function runAudio() {
+  const file = document.getElementById('audio-file').files[0];
+  if (!file) return;
+
+  const btn = document.getElementById('audio-btn');
+  btn.disabled = true;
+  btn.textContent = '변환 중…';
+  document.getElementById('audio-result').style.display = 'none';
+
+  const form = new FormData();
+  form.append('file', file);
+
+  startSse({
+    uploadUrl: '/api/transcribe',
+    formData: form,
+    panelId: 'audio-progress',
+    progressTitle: '🎤 녹취 진행 중',
+    onResult(data) {
+      btn.disabled = false;
+      btn.textContent = '변환 시작';
+      const [ts, clean] = data.files;
+      _audioState = {
+        tsFilename: ts.filename, tsContent: ts.content,
+        cleanFilename: clean.filename, cleanContent: clean.content,
+      };
+      _audioOriginal = JSON.parse(JSON.stringify(_audioState));
+      refreshAudioPreviews();
+      renderSpeakerList();
+      document.getElementById('audio-status').innerHTML = emojiToIconHtml(`✅ 녹취 완료`);
+      document.getElementById('audio-cost').innerHTML = formatCostBadge(data.cost);
+      document.getElementById('audio-result').style.display = 'block';
+      renderIcons();
+    },
+    onError(msg) {
+      btn.disabled = false;
+      btn.textContent = '변환 시작';
+      addProgressStep('audio-progress', '❌ ' + msg);
+    },
+  });
+}
+
+// ─── 채팅 분할 ──────────────────────────────────────────
+async function runChat() {
+  const file = document.getElementById('chat-file').files[0];
+  if (!file) return;
+
+  const btn = document.getElementById('chat-btn');
+  btn.disabled = true;
+  btn.classList.add('loading');
+  btn.textContent = '분할 중';
+  document.getElementById('chat-result').style.display = 'none';
+
+  const form = new FormData();
+  form.append('file', file);
+
+  try {
+    const res = await fetch('/api/chat-split', { method: 'POST', body: form });
+    const data = await res.json();
+
+    if (!res.ok) throw new Error(data.error ?? '서버 오류');
+
+    chatFiles = data.files;
+    document.getElementById('chat-count').innerHTML = emojiToIconHtml(`📅 ${chatFiles.length}개 날짜 분할 완료`);
+
+    const list = document.getElementById('chat-file-list');
+    list.innerHTML = chatFiles.map((f, i) => `
+      <div class="file-item">
+        <span class="file-item-name"><i data-lucide="file-text" class="icon"></i> ${f.filename}</span>
+        <button class="btn-sm" onclick="downloadText('${f.filename}', chatFiles[${i}].content)">다운로드</button>
+      </div>
+    `).join('');
+
+    document.getElementById('chat-status').innerHTML = emojiToIconHtml(`✅ 처리 완료`);
+    document.getElementById('chat-result').style.display = 'block';
+    renderIcons();
+  } catch (err) {
+    document.getElementById('chat-status').innerHTML = emojiToIconHtml('❌ ' + err.message);
+    renderIcons();
+    document.getElementById('chat-status').classList.add('err');
+    document.getElementById('chat-result').style.display = 'block';
+  } finally {
+    btn.disabled = false;
+    btn.classList.remove('loading');
+    btn.textContent = '분할 시작';
+  }
+}
+
+// ─── 음성 결과 상태 (편집 가능) ───────────────────────────
+// _audioState 는 편집된 현재 상태, _audioOriginal 은 reset 용 원본
+let _audioCleanCache = null;  // 인라인 회의록 작성 시 사용 (clean 버전)
+let _audioState = null;       // { tsFilename, tsContent, cleanFilename, cleanContent }
+let _audioOriginal = null;    // 동일 구조, 초기화용
+
+// 화자 라벨 패턴 — "**[HH:MM:SS] 화자A:** ..." 또는 "**화자A:** ..." (clean 버전)
+const SPEAKER_LINE_RE = /^\*\*(?:\[\d{2}:\d{2}:\d{2}\]\s+)?([^:*\n]+):\*\*\s*(.*)$/gm;
+
+function parseSpeakerStats(text) {
+  const stats = new Map();  // label -> { msgCount, charCount }
+  let totalChars = 0;
+  let m;
+  SPEAKER_LINE_RE.lastIndex = 0;
+  while ((m = SPEAKER_LINE_RE.exec(text)) !== null) {
+    const label = m[1].trim();
+    const body = m[2].trim();
+    const charCount = body.length;
+    totalChars += charCount;
+    const cur = stats.get(label) ?? { msgCount: 0, charCount: 0 };
+    cur.msgCount += 1;
+    cur.charCount += charCount;
+    stats.set(label, cur);
+  }
+  return Array.from(stats.entries())
+    .map(([label, s]) => ({
+      label,
+      msgCount: s.msgCount,
+      charCount: s.charCount,
+      percent: totalChars === 0 ? 0 : (s.charCount / totalChars) * 100,
+    }))
+    .sort((a, b) => b.charCount - a.charCount);
+}
+
+/** 화자 한 명의 발화 줄 전체 삭제 (양쪽 버전에 적용) */
+function deleteSpeakerLines(text, label) {
+  const escaped = label.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  // 한 발화는 다음 화자 라벨 직전까지의 모든 줄
+  const re = new RegExp(
+    `^\\*\\*(?:\\[\\d{2}:\\d{2}:\\d{2}\\]\\s+)?${escaped}:\\*\\*[\\s\\S]*?(?=^\\*\\*(?:\\[\\d{2}:\\d{2}:\\d{2}\\]\\s+)?[^:*\\n]+:\\*\\*|\\Z)`,
+    'gm',
+  );
+  return text.replace(re, '').replace(/\n{3,}/g, '\n\n').trim() + '\n';
+}
+
+/** 화자 라벨 일괄 rename */
+function renameSpeakerInText(text, fromLabel, toLabel) {
+  if (!toLabel || fromLabel === toLabel) return text;
+  const escaped = fromLabel.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const re = new RegExp(`(\\*\\*(?:\\[\\d{2}:\\d{2}:\\d{2}\\]\\s+)?)${escaped}(:\\*\\*)`, 'g');
+  return text.replace(re, `$1${toLabel}$2`);
+}
+
+function renderSpeakerList() {
+  const list = document.getElementById('speaker-list');
+  if (!list || !_audioState) return;
+  const stats = parseSpeakerStats(_audioState.cleanContent);
+  if (stats.length === 0) {
+    list.innerHTML = '<div style="color:var(--text-dim);font-size:0.85rem">화자가 감지되지 않았습니다.</div>';
+    return;
+  }
+  list.innerHTML = stats.map((s, i) => {
+    const isNoise = s.percent < 5;  // 5% 미만 = 잡음 후보
+    return `
+      <div style="display:flex;align-items:center;gap:0.5rem;padding:0.5rem;background:var(--bg-input);border-radius:4px;border-left:3px solid ${isNoise ? 'var(--warning)' : 'var(--success)'}">
+        <input type="text" id="speaker-input-${i}" value="${s.label.replace(/"/g, '&quot;')}"
+          style="flex:1;min-width:120px;padding:0.3rem;background:var(--bg);color:var(--text);border:1px solid var(--border);border-radius:3px;font-size:0.875rem"
+          data-original="${s.label.replace(/"/g, '&quot;')}" />
+        <span style="font-size:0.8rem;color:var(--text-dim);white-space:nowrap">
+          ${s.msgCount}회 · ${s.charCount.toLocaleString()}자 · <b>${s.percent.toFixed(1)}%</b>
+        </span>
+        <button class="btn-sm" onclick="applySpeakerRename(${i})">변경</button>
+        <button class="btn-sm" onclick="deleteSpeaker('${s.label.replace(/'/g, "\\'")}')" style="color:#ef4444" title="이 화자의 모든 발화 삭제"><i data-lucide="trash-2" class="icon"></i></button>
+      </div>
+    `;
+  }).join('');
+  renderIcons();
+}
+
+function refreshAudioPreviews() {
+  document.getElementById('audio-ts-preview').textContent = _audioState.tsContent;
+  document.getElementById('audio-clean-preview').textContent = _audioState.cleanContent;
+  document.getElementById('audio-ts-download').onclick = () =>
+    downloadText(_audioState.tsFilename, _audioState.tsContent);
+  document.getElementById('audio-clean-download').onclick = () =>
+    downloadText(_audioState.cleanFilename, _audioState.cleanContent);
+  // 회의록 작성용 캐시도 동기화
+  _audioCleanCache = { filename: _audioState.cleanFilename, content: _audioState.cleanContent };
+}
+
+function applySpeakerRename(idx) {
+  const input = document.getElementById(`speaker-input-${idx}`);
+  if (!input) return;
+  const from = input.dataset.original;
+  const to = input.value.trim();
+  if (!to) { alert('빈 라벨로는 변경할 수 없습니다.'); input.value = from; return; }
+  if (from === to) return;
+  _audioState.tsContent = renameSpeakerInText(_audioState.tsContent, from, to);
+  _audioState.cleanContent = renameSpeakerInText(_audioState.cleanContent, from, to);
+  refreshAudioPreviews();
+  renderSpeakerList();
+}
+
+function deleteSpeaker(label) {
+  if (!confirm(`"${label}" 화자의 모든 발화를 삭제할까요? (초기화 버튼으로 되돌릴 수 있습니다)`)) return;
+  _audioState.tsContent = deleteSpeakerLines(_audioState.tsContent, label);
+  _audioState.cleanContent = deleteSpeakerLines(_audioState.cleanContent, label);
+  refreshAudioPreviews();
+  renderSpeakerList();
+}
+
+function resetSpeakers() {
+  if (!_audioOriginal) return;
+  if (!confirm('편집을 모두 취소하고 원본으로 되돌릴까요?')) return;
+  _audioState = JSON.parse(JSON.stringify(_audioOriginal));
+  refreshAudioPreviews();
+  renderSpeakerList();
+}
+
+// ─── 미팅 노트 ────────────────────────────────────────────
+
+async function refreshTemplates() {
+  try {
+    const res = await fetch('/api/meeting-templates');
+    const { templates, error } = await res.json();
+    if (error) throw new Error(error);
+    const selects = ['audio-notes-template', 'notes-template'];
+    for (const id of selects) {
+      const sel = document.getElementById(id);
+      if (!sel) continue;
+      const prev = sel.value;
+      // <option> 안에는 SVG 못 넣어 텍스트 prefix 유지
+      sel.innerHTML = templates.map(t =>
+        `<option value="${t.id}">${t.source === 'builtin' ? '[기본]' : '[사용자]'} ${t.name}</option>`
+      ).join('');
+      if (prev && templates.find(t => t.id === prev)) sel.value = prev;
+    }
+  } catch (err) {
+    console.error('템플릿 로딩 실패:', err);
+  }
+}
+
+function openTemplateUpload() {
+  document.getElementById('template-upload-error').style.display = 'none';
+  document.getElementById('template-upload-file').value = '';
+  document.getElementById('template-upload-filename').textContent = '선택된 파일 없음';
+  document.getElementById('template-modal').style.display = 'flex';
+  renderIcons();
+}
+
+function closeTemplateUpload() {
+  document.getElementById('template-modal').style.display = 'none';
+}
+
+async function submitTemplateUpload() {
+  const file = document.getElementById('template-upload-file').files[0];
+  const errEl = document.getElementById('template-upload-error');
+  errEl.style.display = 'none';
+  if (!file) {
+    errEl.textContent = '.md 파일을 선택해주세요.';
+    errEl.style.display = 'block';
+    return;
+  }
+  try {
+    const form = new FormData();
+    form.append('file', file);
+    const res = await fetch('/api/meeting-templates/upload', { method: 'POST', body: form });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error ?? '업로드 실패');
+    closeTemplateUpload();
+    await refreshTemplates();
+    // 새로 추가된 템플릿 자동 선택
+    const selects = ['audio-notes-template', 'notes-template'];
+    for (const id of selects) {
+      const sel = document.getElementById(id);
+      if (sel) sel.value = data.template.id;
+    }
+    alert(`업로드 완료: ${data.template.name}`);
+  } catch (err) {
+    errEl.textContent = err.message;
+    errEl.style.display = 'block';
+  }
+}
+
+function generateNotes({ transcript, source, panelId, btnId, resultId, previewId, costId, filenameId, downloadId, templateSelectId, detailSelectId, providerRadioName }) {
+  const templateId = document.getElementById(templateSelectId).value;
+  const detailLevel = detailSelectId ? document.getElementById(detailSelectId).value : 'standard';
+  const providerInput = providerRadioName
+    ? document.querySelector(`input[name="${providerRadioName}"]:checked`)
+    : null;
+  const provider = providerInput?.value ?? 'claude';
+  if (!templateId) { alert('템플릿을 선택하세요.'); return; }
+  if (!transcript || transcript.trim().length < 100) {
+    alert('녹취록이 비어있거나 너무 짧습니다 (최소 100자).');
+    return;
+  }
+
+  const btn = document.getElementById(btnId);
+  btn.disabled = true;
+  btn.textContent = '생성 중…';
+  document.getElementById(resultId).style.display = 'none';
+
+  showProgress(panelId, `📝 회의록 작성 중 (${provider} · ${detailLevel})`);
+
+  fetch('/api/meeting-notes', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ transcript, templateId, source, detailLevel, provider }),
+  })
+    .then(r => r.json())
+    .then(({ jobId, error }) => {
+      if (error || !jobId) throw new Error(error ?? 'Job 생성 실패');
+      const sse = new EventSource(`/api/progress/${jobId}`);
+      sse.addEventListener('progress', e => {
+        const { step, detail } = JSON.parse(e.data);
+        addProgressStep(panelId, step, detail);
+      });
+      sse.addEventListener('result', e => {
+        sse.close();
+        finishProgress(panelId);
+        const data = JSON.parse(e.data);
+        const f = data.files[0];
+        document.getElementById(filenameId).textContent = f.filename;
+        document.getElementById(previewId).textContent = f.content;
+        document.getElementById(costId).innerHTML = formatCostBadge(data.cost);
+        document.getElementById(downloadId).onclick = () => downloadText(f.filename, f.content);
+        document.getElementById(resultId).style.display = 'block';
+        btn.disabled = false;
+        btn.innerHTML = emojiToIconHtml('📝 회의록 작성');
+        renderIcons();
+      });
+      sse.addEventListener('error', e => {
+        sse.close();
+        finishProgress(panelId, 0);
+        try { addProgressStep(panelId, '❌ ' + JSON.parse(e.data).message); }
+        catch { addProgressStep(panelId, '❌ 서버 연결 오류'); }
+        btn.disabled = false;
+        btn.innerHTML = emojiToIconHtml('📝 회의록 작성');
+        renderIcons();
+      });
+    })
+    .catch(err => {
+      finishProgress(panelId, 0);
+      addProgressStep(panelId, '❌ ' + err.message);
+      btn.disabled = false;
+      btn.innerHTML = emojiToIconHtml('📝 회의록 작성');
+      renderIcons();
+    });
+}
+
+function runNotesFromAudio() {
+  if (!_audioCleanCache) { alert('먼저 음성 녹취를 완료하세요.'); return; }
+  generateNotes({
+    transcript: _audioCleanCache.content,
+    source: _audioCleanCache.filename,
+    panelId: 'audio-notes-progress',
+    btnId: 'audio-notes-btn',
+    resultId: 'audio-notes-result',
+    previewId: 'audio-notes-preview',
+    costId: 'audio-notes-cost',
+    filenameId: 'audio-notes-filename',
+    downloadId: 'audio-notes-download',
+    templateSelectId: 'audio-notes-template',
+    detailSelectId: 'audio-notes-detail',
+    providerRadioName: 'audio-notes-provider',
+  });
+}
+
+function runNotesFromTab() {
+  const text = document.getElementById('notes-textarea').value;
+  const fileEl = document.getElementById('notes-file').files[0];
+  const source = fileEl ? fileEl.name : 'pasted-transcript';
+  generateNotes({
+    transcript: text,
+    source,
+    panelId: 'notes-progress',
+    btnId: 'notes-btn',
+    resultId: 'notes-result',
+    previewId: 'notes-preview',
+    costId: 'notes-cost',
+    filenameId: 'notes-filename',
+    downloadId: 'notes-download',
+    templateSelectId: 'notes-template',
+    detailSelectId: 'notes-detail',
+    providerRadioName: 'notes-provider',
+  });
+}
+
+// 페이지 로드 시 lucide 초기화 + 템플릿 1회 자동 로딩
+renderIcons();
+refreshTemplates();
+
+async function downloadAllChat() {
+  if (chatFiles.length === 0) return;
+
+  const btn = document.querySelector('button[onclick="downloadAllChat()"]');
+  const orgText = btn.textContent;
+  btn.textContent = '압축 중...';
+  btn.disabled = true;
+
+  try {
+    const zip = new JSZip();
+    chatFiles.forEach(f => {
+      zip.file(f.filename, f.content);
+    });
+    
+    const blob = await zip.generateAsync({ type: 'blob' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `채팅기록_전체_${chatFiles.length}개.zip`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+  } catch (err) {
+    alert('압축 생성 실패: ' + err.message);
+  } finally {
+    btn.textContent = orgText;
+    btn.disabled = false;
+  }
+}
+</script>
+</body>
+</html>
