@@ -17,8 +17,15 @@ export interface AudioChunk {
 const CHUNK_SIZE_GUARD_MB = 150;
 
 // 번들된 binary 절대경로 (시스템 PATH 의존 X — Electron 패키징에 안전)
-const FFMPEG: string = ffmpegInstaller.path;
-const FFPROBE: string = ffprobeInstaller.path;
+//
+// asar 안에서 require 되면 path 가 'app.asar/.../binary' 로 나오지만 실제 binary 는
+// asarUnpack 으로 'app.asar.unpacked/' 에 있다. dev 모드는 path 에 'app.asar' 없어 무영향.
+function unpackPath(p: string): string {
+  return p.replace('app.asar/', 'app.asar.unpacked/');
+}
+
+const FFMPEG: string = unpackPath(ffmpegInstaller.path);
+const FFPROBE: string = unpackPath(ffprobeInstaller.path);
 
 /** shell command 안에 path 안전하게 quote (공백 포함 절대경로 대비) */
 function q(p: string): string {

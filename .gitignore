@@ -13,3 +13,6 @@ dist/
 # Electron build artifacts
 /dist-electron/
 /build/
+
+# macOS
+.DS_Store
