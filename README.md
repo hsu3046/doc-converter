@@ -1,43 +1,81 @@
-# 📄 doc-converter
+# Doc Converter
 
 ## Tagline-en
 
-Turn chaotic evidence into clean Markdown — OCR scans, transcribe audio, and split chat logs in seconds with Gemini AI.
+From handwritten notes to recordings and chat logs, organize scattered records into clean and easy-to-read documents.
 
 ## Tagline-ko
 
-손으로 쓴 메모도, 녹음 파일도, 카카오톡 대화도 — Gemini AI 하나로 깔끔한 Markdown 문서로 바꿔드립니다.
+손글씨 메모, 녹음 파일, 채팅 기록까지. 흩어진 기록들을 자동으로 정리하고 읽기 쉬운 문서 형태로 변환해보세요.
 
 ## Tagline-ja
 
-手書きメモも、録音ファイルも、チャットログも — Gemini AIが一気にMarkdownへ変換します。
+手書きメモ、録音データ、チャット履歴まで。散らばった記録を整理し、読みやすいドキュメントとして残せます。
 
 ---
 
 ## Summary-en
 
-Evidence documentation shouldn't require hours of manual transcription. Whether it's a stack of handwritten notes, a voice recording from a meeting, or months of chat history, the raw material is always messy — and turning it into a readable, searchable document takes too long. doc-converter changes that. It runs your files through a two-pass Gemini AI pipeline that extracts text with high accuracy, then cleans and structures it into well-formatted Markdown. Drop your files into the browser UI, watch the progress stream in real time, and get polished documents ready for use — all without leaving your machine.
+Organizing important records often takes far more time than expected.
+Handwritten notes, long audio recordings, hundreds of chat messages — every source looks different, and sorting everything manually can quickly become exhausting.
+
+Doc Converter is designed to make that process feel simpler and more natural.
+
+It can read text from document images, turn speech into text, and organize long chat histories into a cleaner, easier-to-read format.
+The results are saved as date-based files, making it easier to search, manage, and continue working later.
+
+Long meeting recordings can also be automatically turned into transcripts and meeting notes,
+with customizable formats that fit your own workflow and style.
+
+A simpler way to keep scattered records
+organized, readable, and easier to manage.
 
 ## Summary-ko
 
-중요한 기록을 직접 타이핑하며 옮기는 작업은 생각보다 훨씬 고됩니다. 손글씨 문서, 오랜 녹음 파일, 수백 건의 채팅 대화 — 원본은 언제나 제각각이고 정리에는 시간이 걸리죠. doc-converter는 이 문제를 해결합니다. Gemini AI 기반의 2-Pass 파이프라인이 OCR, 음성 전사, 채팅 분할을 자동으로 처리하고, 결과는 날짜별로 정리된 Markdown 파일로 깔끔하게 저장됩니다. 브라우저 UI에서 파일을 올리면 실시간으로 진행 상황을 확인할 수 있어, 복잡한 설정 없이 바로 시작할 수 있습니다.
+중요한 기록을 정리하는 일은 생각보다 훨씬 많은 시간을 필요로 합니다.
+손글씨 메모, 긴 녹음 파일, 수백 개의 채팅 대화까지.
+자료는 항상 제각각이고, 필요한 내용만 다시 정리하는 과정도 꽤 번거롭죠.
+
+Doc Converter는 그런 흐름을 조금 더 자연스럽고 편하게 정리해주는 툴입니다.
+
+문서 이미지 속 글자를 읽어내고, 음성을 텍스트로 변환하고, 긴 채팅 기록도 보기 쉽게 정리해줍니다.
+완성된 결과는 날짜별로 파일 형태로 저장되어, 필요한 내용을 다시 찾거나 이어서 관리하기 쉽습니다.
+
+긴 회의 녹음 파일도 자동으로 녹취록과 회의록 형태로 정리할 수 있으며,
+회의록 스타일 역시 원하는 방식에 맞게 직접 커스터마이즈할 수 있습니다.
+
+흩어진 기록들을,
+조금 더 읽기 쉽고 관리하기 편한 형태로 남길 수 있도록.
 
 ## Summary-ja
 
-手書きの記録を一文字ずつタイピングし直す作業は、思った以上に骨が折れます。走り書きのメモ、長時間の録音、膨大なチャット履歴 — 素材はいつもバラバラで、整理には時間がかかります。doc-converterはそのストレスをなくします。Gemini AIによる2パスパイプラインがOCR・音声書き起こし・チャット分割を自動処理し、結果は日付ごとに整理されたMarkdownとして保存されます。ブラウザUIにファイルをアップロードすれば、進捗をリアルタイムで確認しながら、すぐに使えるドキュメントが手に入ります。
+大切な記録を整理する作業は、思っている以上に時間がかかります。
+手書きのメモ、長時間の録音データ、何百件ものチャット履歴まで。
+資料の形式はいつもバラバラで、必要な内容だけを整理し直すのも意外と大変です。
+
+Doc Converter は、そんな流れをもっと自然でスムーズに整えるためのツールです。
+
+書類画像の文字を読み取り、音声をテキスト化し、長いチャット履歴も見やすく整理してくれます。
+整理されたデータは日付ごとのファイルとして保存されるため、後から必要な内容を探したり、続けて管理するのも簡単です。
+
+長時間の会議録音も、自動で文字起こしや議事録として整理でき、
+議事録のスタイルも好みに合わせて自由にカスタマイズできます。
+
+散らばった記録を、
+もっと読みやすく、管理しやすい形で残せるように。
 
 ---
 
 ## ✨ What It Does
 
-- **OCR with confidence** — Runs a two-pass Gemini AI scan on handwritten images and PDFs, correcting errors in the second pass for higher accuracy.
-- **Transcribes audio intelligently** — Converts voice recordings (`.m4a`, `.mp3`, etc.) into two Markdown files: one timestamped verbatim log and one cleaned-up clean transcript. Long files (≤ 2.5h, ≤ 250MB) are auto-split into 10-minute chunks, processed in parallel, and reconciled to keep speaker labels consistent across chunks.
-- **Splits chat logs by date** — Parses KakaoTalk and Instagram CSV/HTML exports and automatically slices them into 7-day chunked Markdown files.
-- **Generates meeting notes from transcripts** — Converts a transcript into structured meeting notes using a Markdown "skill" template (frontmatter `name` + body). Ships with one built-in `general` template; drop your own `.md` files into `~/.doc-converter/meeting-templates/` (or upload via the UI) for 1:1, standup, retro, sales-call, etc.
-- **Streams progress in real time** — Uses Server-Sent Events (SSE) to push live phase updates (`Pass 1 → Pass 2`) directly to the browser UI without polling.
-- **Handles extreme-resolution PDFs gracefully** — Auto-detects oversized scans that exceed Gemini's limits and falls back to a local `poppler` rasterization pipeline.
-- **Runs anywhere via CLI or browser** — Supports both a command-line interface for scripting and a full browser-based drag-and-drop UI on `localhost`.
-- **Preserves CJK filenames** — Fixes the known `multer`/`busboy` Latin-1 encoding bug so Korean and Japanese filenames pass through without corruption.
+- **OCR — handwriting & PDF → Markdown** — 2-pass Gemini scan: Pass 1 (Flash) extracts raw text and marks unclear glyphs with `[?]`, Pass 2 (Pro) re-reads the original alongside Pass 1 output to fix typos, recover `[?]` from context, and structure the result as Markdown. Oversized PDFs auto-fall back to local `poppler` rasterization.
+- **Audio → text** — speech recordings (`.m4a`, `.mp3`, `.wav`, `.aac`, `.ogg`, `.flac`) become two Markdown files: a timestamped verbatim log and a clean reading version. Long recordings (≤ 2.5h, ≤ 250MB) auto-split into 10-min chunks and process **sequentially**, with each chunk's last few utterances injected as context to the next chunk's prompt — speaker labels stay consistent across chunks (no post-hoc reconciliation needed). Recording timestamp metadata (m4a / mp4 `creation_time`) is preserved in the frontmatter.
+- **Meeting notes — transcript → structured notes** — converts any transcript into structured meeting notes using a Markdown "skill" template (frontmatter + body, Anthropic Skills pattern). Ships with three built-in templates (`general`, `detailed`, `team-sync`); drop your own `.md` into `~/.doc-converter/meeting-templates/` (or upload via the UI) for 1:1, standup, retro, sales-call, etc. Two LLM providers (Claude Sonnet 4.6 default, Gemini 3.1 Pro) and four detail levels (`concise`, `standard`, `detailed`, `verbatim`).
+- **Chat log → date-bucketed Markdown** — parses KakaoTalk CSV and Instagram HTML exports, slices conversations into 7-day chunks, one Markdown file per bucket.
+- **Speaker management UI** — after transcription, every detected speaker shows up with utterance count + share-of-talk; a single click renames a label across the whole transcript or deletes all utterances from a speaker (useful for filtering background noise or third-party labels).
+- **Real-time progress streaming** — Server-Sent Events stream live phase updates (`Pass 1 → Pass 2`, `청크 3/12 처리 중…`) to the browser UI without polling. Cost + token usage shown per request.
+- **Three ways to run** — macOS Electron app (`.dmg`, end users), browser UI on `localhost` (`npm run ui`), or a Commander.js CLI for scripting.
+- **CJK-safe everywhere** — fixes the `multer`/`busboy` Latin-1 filename bug so Korean/Japanese filenames survive upload + frontmatter. STT prompt outputs Korean speaker labels (`화자A`, `화자B`).
 
 ---
 
@@ -47,13 +85,17 @@ Evidence documentation shouldn't require hours of manual transcription. Whether 
 |-------|------------|
 | Runtime | Node.js (ESM, `"type": "module"`) |
 | Language | TypeScript (Strict) |
-| AI Engine | Google Gemini (`@google/genai`) |
+| AI Engines | Google Gemini (`@google/genai`) + Anthropic Claude (`@anthropic-ai/sdk`) |
+| Desktop App | Electron 42 + electron-builder (`.dmg` for macOS arm64) |
+| Audio Tooling | `@ffmpeg-installer/ffmpeg` + `@ffprobe-installer/ffprobe` (npm bundled, no system install) |
+| PDF Fallback | `pdf-poppler` (npm bundled) |
 | CLI Framework | Commander.js |
 | Web Server | Express 5 |
 | File Upload | Multer |
 | Progress Streaming | Server-Sent Events (SSE) |
 | CSV Parsing | csv-parse |
-| Local PDF Fallback | poppler (`pdftoppm`) |
+| API Key Storage | macOS Keychain via `security` CLI (Electron) |
+| UI Icons | Lucide |
 
 ---
 
@@ -61,27 +103,29 @@ Evidence documentation shouldn't require hours of manual transcription. Whether 
 
 ### macOS desktop app (Electron — recommended for end users)
 
-For non-technical users — no Node, ffmpeg, or terminal required.
+No Node, ffmpeg, or terminal required.
 
 1. Build the `.dmg` (one-time, on a developer machine):
    ```bash
    npm install
    npm run dist:mac
    # → dist-electron/Doc Converter-1.0.0-arm64.dmg  (Apple Silicon)
-   # → dist-electron/Doc Converter-1.0.0.dmg        (Intel)
    ```
-2. Distribute the `.dmg` to your team. Each user:
-   - Double-click the `.dmg` → drag **Doc Converter** to **Applications**
-   - **First launch**: macOS shows "확인되지 않은 개발자" warning (코드 서명 안 했음)
-     → Finder 에서 우클릭 → **열기** → **다시 열기** (1회만 — 이후 정상)
-   - Open **Settings (⚙️)** in the app header → enter `GEMINI_API_KEY` and `CLAUDE_API_KEY`
-     - 키는 macOS Keychain 에 안전 저장됨 (앱 외부 접근 불가)
-     - 키 발급: [Google AI Studio](https://aistudio.google.com/apikey) · [Anthropic Console](https://console.anthropic.com/settings/keys)
-3. Output files automatically save to `~/Documents/Doc Converter Output/`. Custom templates go in `~/.doc-converter/meeting-templates/`.
+   > Single-arch (arm64) build by default. For Intel Macs, edit `electron-builder.yml` to add `- x64` to `mac.target.arch` and rebuild.
 
-`ffmpeg`, `ffprobe`, `poppler` 모두 앱 안에 번들됨 — 별도 설치 불필요.
+2. Distribute the `.dmg`. Each user:
+   - Double-click the `.dmg` → drag **Doc Converter** into **Applications**
+   - **First launch**: macOS shows an "unidentified developer" warning (the app is unsigned)
+     → Finder → right-click → **Open** → **Open** again (one-time only)
+   - Click **Settings (⚙️)** in the header → enter `GEMINI_API_KEY` and `CLAUDE_API_KEY`
+     - Keys are stored securely in macOS Keychain (not on disk)
+     - Get keys: [Google AI Studio](https://aistudio.google.com/apikey) · [Anthropic Console](https://console.anthropic.com/settings/keys)
 
-### Developer install (for CLI / Web UI / source contribution)
+3. Output files auto-save to `~/Documents/Doc Converter Output/`; custom templates live in `~/.doc-converter/meeting-templates/`. Both folders are reachable from the menu bar.
+
+`ffmpeg`, `ffprobe`, and `poppler` are all bundled inside the app — **no separate install needed**.
+
+### Developer install (CLI / Web UI / source contribution)
 
 ```bash
 git clone https://github.com/hsu3046/doc-converter.git
@@ -118,33 +162,33 @@ npx tsx src/cli.ts chat-split ./exports/kakao.csv -o ./output
 # Generate meeting notes from a transcript
 npx tsx src/cli.ts meeting-notes ./output/meeting_clean.md -t general -o ./output
 
-# Detail level: concise | standard | detailed | verbatim (default: standard)
-npx tsx src/cli.ts meeting-notes ./output/meeting_clean.md -t detailed -d detailed
+# Detail level + provider
+npx tsx src/cli.ts meeting-notes ./output/meeting_clean.md -t detailed -d detailed -p claude
 
 # List available templates (builtin + ~/.doc-converter/meeting-templates/)
 npx tsx src/cli.ts meeting-notes --list
 
 # One-shot: transcribe + meeting notes in a single run
-npx tsx src/cli.ts transcribe ./meeting.mp3 --notes detailed --notes-detail detailed
+npx tsx src/cli.ts transcribe ./meeting.mp3 --notes detailed --notes-detail detailed --notes-provider claude
 ```
 
-### Built-in templates
-- `general` — concise summary (요약/결정/논점/액션/후속질문)
-- `detailed` — topic-by-topic with **verbatim quotes** + decisions + actions, suitable for serious record-keeping
-- `team-sync` — full project-meeting record (정보공유 / 아이디어 / 결정·브랜딩 / 우선도별 To-Do / 향후 일정)
+#### Built-in templates
+- **`general`** — concise summary (Summary / Decisions / Discussion / Actions / Open Questions)
+- **`detailed`** — topic-by-topic with verbatim quotes + decisions + actions, suitable for serious record-keeping
+- **`team-sync`** — full project-meeting record (Information Sharing / Idea Flash / Decisions·Branding / Priority-banded To-Do / Upcoming Schedule)
 
-### Detail levels
-- `concise` — 5~7 lines max, no quotes
-- `standard` — balanced (default)
-- `detailed` — paragraph-per-topic, 1~3 verbatim quotes per topic
-- `verbatim` — heavy on original quotes, 5~10 sentences per topic
+#### Detail levels
+- **`concise`** — 5–7 lines max, no quotes
+- **`standard`** — balanced (default)
+- **`detailed`** — paragraph-per-topic, 1–3 verbatim quotes per topic
+- **`verbatim`** — heavy on original quotes, 5–10 sentences per topic
 
-### LLM providers
-Two providers available — pick per request via the UI radio button or `--provider` CLI flag:
-- `claude` (default) — Claude Sonnet 4.6 via `CLAUDE_API_KEY`
-- `gemini` — Gemini 3 Pro via `GEMINI_API_KEY` (required for OCR / 음성 변환 regardless)
+#### LLM providers
+Pick per request via the UI radio button or `--provider` / `--notes-provider` CLI flag:
+- **`claude`** (default) — Claude Sonnet 4.6 via `CLAUDE_API_KEY`
+- **`gemini`** — Gemini 3.1 Pro via `GEMINI_API_KEY` (also required for OCR and audio regardless of provider choice)
 
-### Custom meeting note templates
+#### Custom meeting note templates
 
 Drop a Markdown file into `~/.doc-converter/meeting-templates/` (auto-created on first run). Format:
 
@@ -155,7 +199,7 @@ description: Manager + direct report — bidirectional commitments
 language: ko
 ---
 
-당신은 미팅 transcript을 보고 아래 구조로 한국어 마크다운 미팅 노트를 작성합니다.
+You are writing meeting notes from the transcript below using the structure that follows.
 
 ## Topics Discussed
 ...
@@ -173,17 +217,17 @@ language: ko
 - ...
 ```
 
-`name` is required. The body is injected verbatim into the LLM prompt — describe the structure however you like.
+`name` is required. The entire body is injected verbatim into the LLM prompt — describe the structure however you like.
 
-**System dependencies (developer install only)**
+#### System dependencies (developer install only)
 
-CLI 모드(`npx tsx ...`)에서 음성 청크 분할 / PDF 라스터화 폴백을 쓰려면 `ffmpeg`/`poppler` 가 필요합니다.
+CLI mode (`npx tsx …`) needs `ffmpeg` and `poppler` for audio chunk splitting and PDF rasterization fallback:
 
 ```bash
 brew install ffmpeg poppler
 ```
 
-> Electron 앱(`.dmg`) 사용자는 위 의존성이 앱 안에 번들되어 있어 별도 설치 불필요.
+> Electron app users get these bundled inside the app — no extra install.
 
 ---
 
@@ -191,25 +235,41 @@ brew install ffmpeg poppler
 
 ```
 doc-converter/
+├── electron/
+│   ├── main.cjs                # Electron main process (CJS — required for `electron` import)
+│   └── preload.cjs             # IPC bridge (Settings, folder access, download toast)
 ├── src/
 │   ├── cli.ts                  # CLI entry point (Commander.js)
 │   ├── commands/
 │   │   ├── ocr.ts              # OCR command handler
 │   │   ├── transcribe.ts       # Audio transcription command
-│   │   └── chat-split.ts       # Chat log splitting command
+│   │   ├── chat-split.ts       # Chat log splitting command
+│   │   └── meeting-notes.ts    # Meeting notes command
 │   ├── services/
-│   │   ├── gemini.ts           # Gemini API client & 2-pass OCR logic
-│   │   ├── ocr-pipeline.ts     # Full OCR pipeline (poppler fallback)
-│   │   ├── audio-pipeline.ts   # Audio → Markdown pipeline
-│   │   └── chat-processor.ts   # Chat log parser (KakaoTalk, Instagram)
+│   │   ├── gemini.ts           # Gemini API client + retry wrapper
+│   │   ├── anthropic.ts        # Claude API client
+│   │   ├── ocr-pipeline.ts     # OCR 2-pass pipeline (poppler fallback)
+│   │   ├── audio-pipeline.ts   # Sequential chunk audio pipeline
+│   │   ├── meeting-notes-pipeline.ts  # Notes generation (template + provider)
+│   │   ├── chat-processor.ts   # Chat log parser (KakaoTalk, Instagram)
+│   │   └── template-loader.ts  # Built-in + user templates
+│   ├── meeting-templates/builtin/      # general.md / detailed.md / team-sync.md
 │   ├── ui/
-│   │   └── server.ts           # Express server + SSE streaming
-│   ├── templates/              # Markdown output templates
+│   │   ├── server.ts           # Express server + SSE streaming
+│   │   └── public/index.html   # Browser UI (used by both Web and Electron)
+│   ├── templates/              # Output frontmatter builder
 │   ├── types/                  # Shared TypeScript type definitions
-│   └── utils/                  # Shared helper utilities
+│   └── utils/
+│       ├── audio-splitter.ts   # ffmpeg chunking + recording-time probe
+│       ├── pdf-extractor.ts    # poppler PDF → PNG fallback
+│       └── file-io.ts
+├── electron-builder.yml        # macOS .dmg build config
+├── build/icon.icns             # App icon (gitignored — generate via iconutil)
 ├── docs/
-│   └── MEMORY.md               # Project-specific decisions & bug log
+│   ├── MEMORY.md               # Project-specific decisions & bug log
+│   └── IDEAS.md                # Deferred improvement ideas (with rationale)
 ├── dist/                       # Compiled JS output (gitignored)
+├── dist-electron/              # .dmg build output (gitignored)
 ├── .env.example                # Environment variable template
 ├── .env.local                  # API keys (never commit)
 ├── tsconfig.json
@@ -220,30 +280,32 @@ doc-converter/
 
 ## 🗺 Roadmap
 
-- [ ] Web UI drag-and-drop file upload with progress bar
-- [ ] PDF batch processing with queue management
-- [ ] Support for additional chat platforms (LINE, Telegram)
-- [ ] Docker image for server deployment
-- [ ] Output format options (plain text, HTML, PDF)
-- [ ] Confidence score per OCR line with highlight UI
+See [`docs/IDEAS.md`](docs/IDEAS.md) for analyzed-but-deferred items with full rationale and trigger conditions:
+
+1. **OCR cross-validation** — replace 2-pass (Flash + Pro) with Flash×N + reconciliation pass (~70% cost savings, pending quality validation)
+2. **iPhone support** — PWA + Mac host / Capacitor sideload / native Swift options
+3. **Vercel deployment** — full feature set with Webhook + Batch (Pro plan, ~10 dev-days)
+4. **Meeting history RAG / Knowledge Graph / To-Do tracking** — accumulate past meetings, auto-inject context into new ones, track action items across meetings (SQLite + sqlite-vec, optional LangChain `LLMGraphTransformer`)
 
 ---
 
 ## 🤝 Contributing
 
-Contributions are welcome! Please follow these steps:
+Contributions are welcome:
 
 1. Fork the repository
 2. Create a feature branch (`git checkout -b feat/amazing-feature`)
 3. Commit your changes (`git commit -m 'feat(scope): add amazing feature'`)
-4. Push to the branch (`git push origin feat/amazing-feature`)
+4. Push (`git push origin feat/amazing-feature`)
 5. Open a Pull Request
+
+Before non-trivial changes, please skim [`docs/MEMORY.md`](docs/MEMORY.md) — it captures load-bearing decisions (sequential audio pipeline, Electron CJS main process, asar path conversion, etc.) that are easy to break unintentionally.
 
 ---
 
 ## 📄 License
 
-This project is licensed under the [GNU General Public License v3.0](https://www.gnu.org/licenses/gpl-3.0.html).
+[GNU General Public License v3.0](https://www.gnu.org/licenses/gpl-3.0.html).
 
 ---
 
