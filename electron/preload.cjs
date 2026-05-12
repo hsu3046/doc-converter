@@ -12,6 +12,7 @@ contextBridge.exposeInMainWorld('docConverter', {
   // 폴더 (Finder)
   openOutputFolder: () => ipcRenderer.invoke('folders:open-output'),
   openTemplatesFolder: () => ipcRenderer.invoke('folders:open-templates'),
+  openLogsFolder: () => ipcRenderer.invoke('folders:open-logs'),
   getFolderPaths: () => ipcRenderer.invoke('folders:get-paths'),
 
   // 다운로드 완료 알림 (toast 용) + Finder 에서 보기

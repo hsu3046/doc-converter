@@ -64,16 +64,28 @@ program
     '미팅 노트 LLM provider (claude | gemini)',
     'claude',
   )
+  .option(
+    '--trim-silence',
+    'VAD 로 무음/비음성 구간 잘라낸 뒤 STT (Gemini 입력 시간 절감)',
+    false,
+  )
   .action(
     async (
       input: string,
-      options: { output: string; notes?: string; notesDetail?: string; notesProvider?: string },
+      options: {
+        output: string;
+        notes?: string;
+        notesDetail?: string;
+        notesProvider?: string;
+        trimSilence?: boolean;
+      },
     ) => {
       await transcribeCommand(input, {
         output: options.output,
         notes: options.notes,
         notesDetail: options.notesDetail as TranscribeOptions['notesDetail'],
         notesProvider: options.notesProvider as TranscribeOptions['notesProvider'],
+        trimSilence: options.trimSilence ?? false,
       });
     },
   );

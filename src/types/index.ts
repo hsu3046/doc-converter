@@ -46,6 +46,8 @@ export interface TranscribeOptions {
   notesDetail?: DetailLevel;
   /** 미팅 노트 LLM provider (notes 옵션과 함께 사용) */
   notesProvider?: NotesProvider;
+  /** VAD 로 STT 전 무음 구간 자동 제거 (입력 시간 절감). 기본 false */
+  trimSilence?: boolean;
 }
 
 /** 채팅 로그 분할 옵션 */

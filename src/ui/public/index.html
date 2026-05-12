@@ -243,7 +243,8 @@
     background: var(--surface);
     border: 1px solid var(--border);
     border-radius: var(--radius);
-    overflow: hidden;
+    overflow-x: hidden;
+    overflow-y: hidden;
     margin-bottom: 1.2rem;
   }
   .progress-header {
@@ -260,6 +261,7 @@
     height: 3px;
     background: var(--surface2);
     position: relative;
+    overflow: hidden;
   }
   .progress-bar {
     height: 100%;
@@ -282,6 +284,7 @@
     gap: 0.45rem;
     max-height: 180px;
     overflow-y: auto;
+    overflow-x: hidden;
   }
   .progress-step {
     font-size: 0.82rem;
@@ -290,10 +293,99 @@
     flex-direction: column;
     gap: 0.15rem;
     animation: fadeIn 0.25s ease;
+    overflow-wrap: anywhere;
+    word-break: break-word;
   }
   .progress-step.current { color: var(--text); }
   .progress-step .step-main { font-size: 0.84rem; }
   .progress-step .step-detail { font-size: 0.74rem; color: var(--text-dim); opacity: 0.7; }
+  .progress-step.error-step .step-main { color: #f87171; }
+  .btn-detail {
+    margin-left: 0.5rem;
+    padding: 0.15rem 0.6rem;
+    background: transparent;
+    border: 1px solid #f87171;
+    border-radius: 4px;
+    color: #f87171;
+    font-size: 0.72rem;
+    cursor: pointer;
+  }
+  .btn-detail:hover { background: rgba(248,113,113,0.1); }
+
+  /* ─── 에러 추적 모달 ─────────────────────────────────────── */
+  .modal-overlay {
+    position: fixed; inset: 0;
+    background: rgba(0,0,0,0.6);
+    display: flex; align-items: center; justify-content: center;
+    z-index: 1000;
+    padding: 2rem;
+  }
+  .modal-overlay.hidden { display: none; }
+  .modal-dialog {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    width: 100%; max-width: 720px;
+    max-height: 80vh;
+    display: flex; flex-direction: column;
+    overflow: hidden;
+  }
+  .modal-header {
+    padding: 0.9rem 1.2rem;
+    border-bottom: 1px solid var(--border);
+    display: flex; justify-content: space-between; align-items: center;
+  }
+  .modal-header h3 { margin: 0; font-size: 0.95rem; }
+  .modal-close {
+    background: transparent; border: none; color: var(--text-dim);
+    font-size: 1.2rem; cursor: pointer; line-height: 1;
+  }
+  .modal-body {
+    padding: 0.5rem 1.2rem;
+    overflow-y: auto;
+    flex: 1;
+  }
+  .modal-footer {
+    padding: 0.75rem 1.2rem;
+    border-top: 1px solid var(--border);
+    display: flex; justify-content: space-between; align-items: center;
+    gap: 0.5rem; flex-wrap: wrap;
+    font-size: 0.75rem; color: var(--text-dim);
+  }
+  .modal-footer code {
+    font-family: ui-monospace, SFMono-Regular, monospace;
+    background: var(--surface2); padding: 0.1rem 0.4rem; border-radius: 3px;
+    user-select: text;
+  }
+  .log-entry {
+    padding: 0.6rem 0.85rem;
+    margin: 0.6rem 0;
+    background: var(--surface2);
+    border-radius: 4px;
+    font-size: 0.8rem;
+  }
+  .log-head {
+    display: flex; gap: 0.6rem; align-items: baseline;
+    margin-bottom: 0.3rem;
+    font-size: 0.72rem;
+  }
+  .log-level { font-weight: 600; }
+  .log-context { color: var(--text-dim); font-family: ui-monospace, monospace; }
+  .log-time { margin-left: auto; color: var(--text-dim); opacity: 0.7; }
+  .log-msg { color: var(--text); font-weight: 500; margin-bottom: 0.35rem; }
+  .log-cause, .log-stack {
+    background: rgba(0,0,0,0.25);
+    padding: 0.5rem 0.7rem;
+    border-radius: 3px;
+    font-family: ui-monospace, SFMono-Regular, monospace;
+    font-size: 0.7rem;
+    overflow-x: auto;
+    margin: 0.35rem 0;
+    white-space: pre-wrap;
+    color: var(--text-dim);
+  }
+  .log-entry details { margin: 0.3rem 0; }
+  .log-entry summary { cursor: pointer; font-size: 0.72rem; color: var(--text-dim); }
   @keyframes fadeIn { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
 
   .result-actions { display: flex; gap: 0.5rem; }
@@ -409,10 +501,17 @@
     <h2>음성 파일 → 텍스트 파일</h2>
 
     <div class="drop-zone" id="audio-drop">
-      <input type="file" id="audio-file" accept=".mp3,.wav,.m4a,.aac,.ogg,.flac,.wma" />
+      <input type="file" id="audio-file" accept=".mp3,.wav,.m4a,.qta,.aac,.ogg,.flac,.wma" />
       <div class="drop-icon"><i data-lucide="audio-lines"></i></div>
       <div class="drop-label">파일을 드래그하거나 <strong>클릭해서 선택</strong></div>
-      <div class="file-accepted">MP3 · WAV · M4A · AAC · OGG · FLAC (최대 250MB · 약 2시간)</div>
+      <div class="file-accepted">MP3 · WAV · M4A · QTA · AAC · OGG · FLAC (최대 1GB · 약 4시간)</div>
+    </div>
+
+    <div style="margin:0.5rem 0 1rem;padding:0.6rem 0.75rem;background:var(--bg-input);border:1px solid var(--border);border-radius:6px;display:flex;align-items:center;gap:0.6rem">
+      <input type="checkbox" id="audio-trim-silence" checked style="flex-shrink:0" />
+      <label for="audio-trim-silence" style="font-size:0.875rem;color:var(--text);cursor:pointer">
+        <strong>대화 없는 구간 자동 제거</strong>
+      </label>
     </div>
 
     <button class="btn" id="audio-btn" onclick="runAudio()" disabled>변환 시작</button>
@@ -672,13 +771,16 @@ const EMOJI_MAP = {
   '⚖️': 'scale', '🖊️': 'pen-tool', '🎙️': 'mic', '💬': 'message-circle',
   '📝': 'notebook-pen', '📄': 'file-text', '🎵': 'music-2', '👥': 'users',
   '🕐': 'clock', '✨': 'sparkles', '🔄': 'refresh-cw', '📑': 'clipboard-list',
-  '📤': 'upload', '📊': 'bar-chart-2', '🔪': 'scissors', '✅': 'check-circle-2',
-  '❌': 'x-circle', '⚠️': 'alert-triangle', '🧠': 'brain', '🎭': 'venetian-mask',
+  '📤': 'upload', '📊': 'bar-chart-2', '🔪': 'scissors', '✅': 'circle-check',
+  '❌': 'x-circle', '⚠️': 'alert-triangle', '🧠': 'search', '🎭': 'venetian-mask',
   '📡': 'satellite-dish', '📋': 'clipboard', '💰': 'wallet', '🎯': 'target',
   '📌': 'pin', '🧭': 'compass', '✔': 'check', '✔️': 'check', '🗑️': 'trash-2',
   '📦': 'package', '👤': 'user', '🎤': 'mic', '📅': 'calendar',
   '🚀': 'rocket', '↺': 'rotate-ccw', '⏳': 'hourglass', '⚙️': 'settings',
   '🎨': 'palette', '🔍': 'search', '🎙': 'mic',
+  // VAD / 음성 파이프라인 진행상황 전용
+  '🔊': 'audio-waveform', '✂️': 'scissors', '📒': 'table-of-contents',
+  '💾': 'save',
 };
 const _emojiKeysSorted = Object.keys(EMOJI_MAP).sort((a, b) => b.length - a.length);
 
@@ -790,7 +892,8 @@ function startSse({
         sse.close();
         finishProgress(panelId, 0);
         try {
-          onError(JSON.parse(e.data).message);
+          const payload = JSON.parse(e.data);
+          onError(payload.message, payload.jobId);
         } catch {
           onError('서버 연결 오류');
         }
@@ -800,6 +903,116 @@ function startSse({
       finishProgress(panelId, 0);
       onError(err.message);
     });
+}
+
+// ─── 에러 추적 모달 ────────────────────────────────────────
+function addErrorStep(panelId, message, jobId) {
+  const log = document.getElementById(`${panelId}-log`);
+  if (!log) return;
+  log.querySelectorAll('.progress-step').forEach(el => el.classList.remove('current'));
+  const div = document.createElement('div');
+  div.className = 'progress-step current error-step';
+  const btnHtml = jobId
+    ? ` <button class="btn-detail" onclick="openLogModal('${jobId}')">상세</button>`
+    : '';
+  div.innerHTML = `<span class="step-main">${emojiToIconHtml('❌ ' + message)}${btnHtml}</span>`;
+  log.appendChild(div);
+  log.scrollTop = log.scrollHeight;
+  renderIcons();
+}
+
+async function openLogModal(jobId) {
+  const modal = document.getElementById('log-modal');
+  const body = document.getElementById('log-modal-body');
+  const pathEl = document.getElementById('log-modal-path');
+  modal.classList.remove('hidden');
+  body.innerHTML = '<div style="opacity:0.6;padding:1rem">불러오는 중...</div>';
+
+  try {
+    const url = jobId ? `/api/logs/recent?jobId=${encodeURIComponent(jobId)}` : '/api/logs/recent';
+    const res = await fetch(url);
+    const { events, logDir } = await res.json();
+    if (pathEl) pathEl.textContent = logDir;
+
+    if (!events || events.length === 0) {
+      body.innerHTML = '<div style="opacity:0.6;padding:1rem">기록된 이벤트가 없습니다.</div>';
+      return;
+    }
+
+    body.innerHTML = events.map(ev => renderLogEntry(ev)).join('');
+    renderIcons();
+  } catch (err) {
+    body.innerHTML = `<div style="color:var(--danger,#f87171);padding:1rem">로그 조회 실패: ${err.message}</div>`;
+  }
+}
+
+function renderLogEntry(ev) {
+  const levelColors = { error: '#f87171', warn: '#fbbf24', info: '#60a5fa' };
+  const color = levelColors[ev.level] || '#9ca3af';
+  const timestamp = new Date(ev.timestamp).toLocaleTimeString('ko-KR', { hour12: false });
+
+  let causeChain = '';
+  if (ev.err) {
+    const parts = [];
+    let cur = ev.err;
+    let depth = 0;
+    while (cur && depth < 5) {
+      const indent = '  '.repeat(depth);
+      const code = cur.code ? ` (code: ${escapeHtml(String(cur.code))})` : '';
+      const status = cur.status ? ` [status: ${cur.status}]` : '';
+      parts.push(`${indent}${escapeHtml(cur.name || 'Error')}: ${escapeHtml(cur.message || '(no message)')}${code}${status}`);
+      cur = cur.cause;
+      depth++;
+    }
+    causeChain = parts.join('\n');
+  }
+
+  const stack = ev.err?.stack ? `<pre class="log-stack">${escapeHtml(ev.err.stack)}</pre>` : '';
+  const body = ev.err?.responseBody ? `<details><summary>응답 본문</summary><pre class="log-stack">${escapeHtml(ev.err.responseBody)}</pre></details>` : '';
+  const extra = ev.extra ? `<details><summary>추가 정보</summary><pre class="log-stack">${escapeHtml(JSON.stringify(ev.extra, null, 2))}</pre></details>` : '';
+
+  return `
+    <div class="log-entry" style="border-left:3px solid ${color}">
+      <div class="log-head">
+        <span class="log-level" style="color:${color}">${ev.level.toUpperCase()}</span>
+        <span class="log-context">${escapeHtml(ev.context)}</span>
+        <span class="log-time">${timestamp}</span>
+      </div>
+      <div class="log-msg">${escapeHtml(ev.message)}</div>
+      ${causeChain ? `<pre class="log-cause">${escapeHtml(causeChain)}</pre>` : ''}
+      ${stack}
+      ${body}
+      ${extra}
+    </div>
+  `;
+}
+
+function escapeHtml(s) {
+  return String(s).replace(/[&<>"']/g, (c) => ({
+    '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;',
+  }[c]));
+}
+
+function closeLogModal() {
+  document.getElementById('log-modal').classList.add('hidden');
+}
+
+async function openLogsFolder() {
+  // Electron 경로
+  if (window.docConverter && window.docConverter.openLogsFolder) {
+    await window.docConverter.openLogsFolder();
+    return;
+  }
+  // 웹 모드 — 경로 alert (사용자가 직접 Finder 에서 열기)
+  const path = document.getElementById('log-modal-path')?.textContent;
+  if (path) {
+    try {
+      await navigator.clipboard.writeText(path);
+      alert(`로그 폴더 경로가 복사됐어요:\n${path}`);
+    } catch {
+      alert(`로그 폴더 경로:\n${path}`);
+    }
+  }
 }
 
 // ─── 탭 전환 ────────────────────────────────────────────
@@ -934,10 +1147,10 @@ function runOcr() {
       document.getElementById('ocr-download-btn').onclick = () => downloadText(data.filename, data.content);
       document.getElementById('ocr-result').style.display = 'block';
     },
-    onError(msg) {
+    onError(msg, jobId) {
       btn.disabled = false;
       btn.textContent = '변환 시작';
-      addProgressStep('ocr-progress', '❌ ' + msg);
+      addErrorStep('ocr-progress', msg, jobId);
     },
   });
 }
@@ -955,6 +1168,9 @@ function runAudio() {
 
   const form = new FormData();
   form.append('file', file);
+  if (document.getElementById('audio-trim-silence').checked) {
+    form.append('trimSilence', 'true');
+  }
 
   startSse({
     uploadUrl: '/api/transcribe',
@@ -977,10 +1193,10 @@ function runAudio() {
       document.getElementById('audio-result').style.display = 'block';
       renderIcons();
     },
-    onError(msg) {
+    onError(msg, jobId) {
       btn.disabled = false;
       btn.textContent = '변환 시작';
-      addProgressStep('audio-progress', '❌ ' + msg);
+      addErrorStep('audio-progress', msg, jobId);
     },
   });
 }
@@ -1473,5 +1689,20 @@ async function downloadAllChat() {
   }
 }
 </script>
+<!-- ─── 에러 추적 모달 ─────────────────────────────────────── -->
+<div id="log-modal" class="modal-overlay hidden" onclick="if(event.target===this)closeLogModal()">
+  <div class="modal-dialog">
+    <div class="modal-header">
+      <h3><i data-lucide="alert-triangle" class="icon"></i> 에러 상세 정보</h3>
+      <button class="modal-close" onclick="closeLogModal()" aria-label="닫기">×</button>
+    </div>
+    <div class="modal-body" id="log-modal-body"></div>
+    <div class="modal-footer">
+      <span>로그 파일: <code id="log-modal-path">~/.doc-converter/logs/</code></span>
+      <button class="btn-sm" onclick="openLogsFolder()"><i data-lucide="folder-open" class="icon"></i> 로그 폴더 열기</button>
+    </div>
+  </div>
+</div>
+
 </body>
 </html>

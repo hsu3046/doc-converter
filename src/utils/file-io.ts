@@ -45,6 +45,7 @@ export function getMimeType(filePath: string): string {
     '.mp3': 'audio/mpeg',
     '.wav': 'audio/wav',
     '.m4a': 'audio/mp4',
+    '.qta': 'audio/mp4',  // QuickTime Audio (macOS) — MPEG-4 컨테이너와 동일
     '.aac': 'audio/aac',
     '.ogg': 'audio/ogg',
     '.flac': 'audio/flac',

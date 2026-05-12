@@ -69,11 +69,13 @@ Doc Converter は、そんな流れをもっと自然でスムーズに整える
 ## ✨ What It Does
 
 - **OCR — handwriting & PDF → Markdown** — 2-pass Gemini scan: Pass 1 (Flash) extracts raw text and marks unclear glyphs with `[?]`, Pass 2 (Pro) re-reads the original alongside Pass 1 output to fix typos, recover `[?]` from context, and structure the result as Markdown. Oversized PDFs auto-fall back to local `poppler` rasterization.
-- **Audio → text** — speech recordings (`.m4a`, `.mp3`, `.wav`, `.aac`, `.ogg`, `.flac`) become two Markdown files: a timestamped verbatim log and a clean reading version. Long recordings (≤ 2.5h, ≤ 250MB) auto-split into 10-min chunks and process **sequentially**, with each chunk's last few utterances injected as context to the next chunk's prompt — speaker labels stay consistent across chunks (no post-hoc reconciliation needed). Recording timestamp metadata (m4a / mp4 `creation_time`) is preserved in the frontmatter.
+- **Audio → text** — speech recordings (`.m4a`, `.mp3`, `.wav`, `.qta`, `.aac`, `.ogg`, `.flac`) become two Markdown files: a timestamped verbatim log and a clean reading version. Long recordings (≤ 4h, ≤ 1GB) auto-split into 10-min chunks and process **sequentially**, with each chunk's last few utterances injected as context to the next chunk's prompt — speaker labels stay consistent across chunks (no post-hoc reconciliation needed). Recording timestamp metadata (m4a / mp4 `creation_time`) is preserved in the frontmatter.
+- **VAD — silence trimming before STT** *(default ON)* — local **Silero VAD** (ONNX, no network call, no API cost) detects speaker utterances and trims dead air *before* the Gemini upload. Robust to café / office background noise unlike dB-threshold silence detection. Typical 30–40% reduction in Gemini input duration on real meeting recordings; meeting-note timestamps are remapped back to original recording time so `[HH:MM:SS]` markers still match the wall clock. Uses ffmpeg's `concat` demuxer for fast assembly (handles 400+ segments in ~30s).
 - **Meeting notes — transcript → structured notes** — converts any transcript into structured meeting notes using a Markdown "skill" template (frontmatter + body, Anthropic Skills pattern). Ships with three built-in templates (`general`, `detailed`, `team-sync`); drop your own `.md` into `~/.doc-converter/meeting-templates/` (or upload via the UI) for 1:1, standup, retro, sales-call, etc. Two LLM providers (Claude Sonnet 4.6 default, Gemini 3.1 Pro) and four detail levels (`concise`, `standard`, `detailed`, `verbatim`).
 - **Chat log → date-bucketed Markdown** — parses KakaoTalk CSV and Instagram HTML exports, slices conversations into 7-day chunks, one Markdown file per bucket.
 - **Speaker management UI** — after transcription, every detected speaker shows up with utterance count + share-of-talk; a single click renames a label across the whole transcript or deletes all utterances from a speaker (useful for filtering background noise or third-party labels).
 - **Real-time progress streaming** — Server-Sent Events stream live phase updates (`Pass 1 → Pass 2`, `청크 3/12 처리 중…`) to the browser UI without polling. Cost + token usage shown per request.
+- **Error tracing** — every catchable failure is captured to `~/.doc-converter/logs/YYYY-MM-DD.jsonl` with full stack, `err.cause` chain (5 levels deep — catches the real culprit behind Node fetch's wrapped `fetch failed`), HTTP status, response body (truncated to 1 KB), and context (`jobId / chunkIndex / model / filename`). The UI shows a **상세 (Details)** button next to every ❌ progress line that opens a modal with the structured trace; the modal footer has a **Open logs folder** button (Finder on Electron, clipboard copy on web). Network errors (`ECONNRESET / UND_ERR_SOCKET / fetch failed / ETIMEDOUT`) and HTTP 429/5xx now auto-retry up to 4 times with exponential backoff at every layer (Gemini File API upload, polling, and `generateContent`).
 - **Three ways to run** — macOS Electron app (`.dmg`, end users), browser UI on `localhost` (`npm run ui`), or a Commander.js CLI for scripting.
 - **CJK-safe everywhere** — fixes the `multer`/`busboy` Latin-1 filename bug so Korean/Japanese filenames survive upload + frontmatter. STT prompt outputs Korean speaker labels (`화자A`, `화자B`).
 
@@ -86,6 +88,7 @@ Doc Converter は、そんな流れをもっと自然でスムーズに整える
 | Runtime | Node.js (ESM, `"type": "module"`) |
 | Language | TypeScript (Strict) |
 | AI Engines | Google Gemini (`@google/genai`) + Anthropic Claude (`@anthropic-ai/sdk`) |
+| Voice Activity Detection | **Silero VAD v5** (ONNX) + `onnxruntime-node` — fully local, ~2 MB model bundled |
 | Desktop App | Electron 42 + electron-builder (`.dmg` for macOS arm64) |
 | Audio Tooling | `@ffmpeg-installer/ffmpeg` + `@ffprobe-installer/ffprobe` (npm bundled, no system install) |
 | PDF Fallback | `pdf-poppler` (npm bundled) |
@@ -153,8 +156,9 @@ npm run dev:electron
 # OCR: handwritten images or PDFs
 npx tsx src/cli.ts ocr ./scans/*.jpg -o ./output
 
-# Transcribe audio
+# Transcribe audio (add --trim-silence to drop dead air via local VAD before upload)
 npx tsx src/cli.ts transcribe ./recordings/*.m4a -o ./output
+npx tsx src/cli.ts transcribe ./meeting.qta --trim-silence -o ./output
 
 # Split chat log
 npx tsx src/cli.ts chat-split ./exports/kakao.csv -o ./output
@@ -262,7 +266,12 @@ doc-converter/
 │   └── utils/
 │       ├── audio-splitter.ts   # ffmpeg chunking + recording-time probe
 │       ├── pdf-extractor.ts    # poppler PDF → PNG fallback
+│       ├── vad.ts              # Silero VAD ONNX wrapper (local speech detection)
+│       ├── trim-silence.ts     # VAD → ffmpeg concat-demuxer trim + timestamp map
+│       ├── error-logger.ts     # ~/.doc-converter/logs/*.jsonl + ring buffer
 │       └── file-io.ts
+├── assets/
+│   └── silero_vad.onnx         # Silero VAD v5 model (bundled, 2.24 MB)
 ├── electron-builder.yml        # macOS .dmg build config
 ├── build/icon.icns             # App icon (gitignored — generate via iconutil)
 ├── docs/

@@ -21,6 +21,7 @@ import {
   type DetailLevel,
   type NotesProvider,
 } from '../types/index.js';
+import { logEvent, getRecentEvents, getLogDir } from '../utils/error-logger.js';
 
 function normalizeDetailLevel(input: unknown): DetailLevel {
   if (typeof input !== 'string') return 'standard';
@@ -37,7 +38,9 @@ function normalizeProvider(input: unknown): NotesProvider {
 }
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const MAX_UPLOAD_BYTES = 250 * 1024 * 1024;
+// 1GB — 보통 4~5시간 회의 m4a/mp3 분량. 청크 분할이 자동으로 처리하므로 파일 크기 자체는 병목 X.
+// Gemini File API 단일 청크 제한 2GB 가 진짜 상한 (청크당 10분이라 실질 영향 없음).
+const MAX_UPLOAD_BYTES = 1024 * 1024 * 1024;
 const upload = multer({
   dest: os.tmpdir(),
   limits: { fileSize: MAX_UPLOAD_BYTES },
@@ -162,6 +165,13 @@ export function createServer() {
     const notesTemplate = (req.body['notes'] as string | undefined) || undefined;
     const notesDetail = normalizeDetailLevel(req.body['notesDetail']);
     const notesProvider = normalizeProvider(req.body['notesProvider']);
+    // checkbox / true/false / on 모두 truthy 로 처리
+    const trimSilenceRaw = req.body['trimSilence'];
+    const trimSilence =
+      trimSilenceRaw === true ||
+      trimSilenceRaw === 'true' ||
+      trimSilenceRaw === 'on' ||
+      trimSilenceRaw === '1';
     const { jobId, emitter } = createJob();
     res.json({ jobId });
 
@@ -172,11 +182,11 @@ export function createServer() {
     try {
       await fs.rename(file.path, renamedPath);
 
-      const { timestamped, clean, cost } = await runAudioPipeline(
-        renamedPath,
+      const { timestamped, clean, cost } = await runAudioPipeline(renamedPath, {
         originalName,
-        (step, detail) => emitter.emit('progress', { step, detail })
-      );
+        onProgress: (step, detail) => emitter.emit('progress', { step, detail }),
+        trimSilence,
+      });
       await fs.unlink(renamedPath).catch(() => {});
 
       const baseName = path.basename(originalName, ext);
@@ -214,10 +224,36 @@ export function createServer() {
 
       emitter.emit('result', { files, cost: totalCost });
     } catch (err) {
+      await logEvent({
+        level: 'error',
+        context: 'api:transcribe',
+        message: '녹취 작업 실패',
+        jobId,
+        err,
+        extra: {
+          fileName: originalName,
+          fileSize: file.size,
+          trimSilence,
+          notesTemplate,
+        },
+      });
       await fs.unlink(renamedPath).catch(() => {});
       await fs.unlink(file.path).catch(() => {});
-      emitter.emit('error', { message: err instanceof Error ? err.message : String(err) });
+      emitter.emit('error', {
+        message: err instanceof Error ? err.message : String(err),
+        jobId,  // UI 가 이 jobId 로 상세 로그 조회 가능
+      });
     }
+  });
+
+  // ─── 로그 조회 ─────────────────────────────────────────
+  // 최근 에러/경고 이벤트를 JSON 으로 반환 (UI 의 "상세" 모달용)
+  app.get('/api/logs/recent', (req, res) => {
+    const limit = Math.min(parseInt((req.query['limit'] as string) ?? '50', 10) || 50, 200);
+    const jobId = req.query['jobId'] as string | undefined;
+    let events = getRecentEvents(limit);
+    if (jobId) events = events.filter((e) => e.jobId === jobId);
+    res.json({ logDir: getLogDir(), events });
   });
 
   // ─── 미팅 노트 ────────────────────────────────────────

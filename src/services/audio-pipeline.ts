@@ -16,6 +16,14 @@ import {
   probeRecordingTime,
   type AudioChunk,
 } from '../utils/audio-splitter.js';
+import {
+  trimSilence,
+  cleanupTrimmed,
+  trimmedToOriginal,
+  type SegmentMap,
+  type TrimResult,
+} from '../utils/trim-silence.js';
+import { logEvent } from '../utils/error-logger.js';
 
 export interface AudioResult {
   timestamped: string;
@@ -23,11 +31,31 @@ export interface AudioResult {
   cost: CostSummary;
 }
 
+export interface AudioPipelineOptions {
+  originalName?: string;
+  onProgress?: ProgressCallback;
+  /** VAD 로 무음 구간 자동 제거 (Gemini 입력 시간 절감). 기본 false */
+  trimSilence?: boolean;
+}
+
 const CHUNK_THRESHOLD_SEC = 9 * 60;
 const CHUNK_DURATION_SEC = 10 * 60;
-const MAX_DURATION_SEC = 2.5 * 3600;
+const MAX_DURATION_SEC = 4 * 3600;
 /** 다음 청크 프롬프트에 inject 할 직전 청크의 마지막 화자 발화 개수 */
 const PREV_CONTEXT_LINES = 6;
+
+/** 초 → "N시간 M분 / N분 S초 / S초" 보기 좋은 한국어 표기 */
+function fmtDuration(sec: number): string {
+  if (sec < 60) return `${sec.toFixed(0)}초`;
+  if (sec < 3600) {
+    const m = Math.floor(sec / 60);
+    const s = Math.round(sec % 60);
+    return s === 0 ? `${m}분` : `${m}분 ${s}초`;
+  }
+  const h = Math.floor(sec / 3600);
+  const m = Math.round((sec % 3600) / 60);
+  return m === 0 ? `${h}시간` : `${h}시간 ${m}분`;
+}
 
 const BASE_TRANSCRIBE_PROMPT = `이 오디오 파일의 내용을 한국어로 정확하게 녹취해주세요.
 
@@ -119,6 +147,19 @@ function offsetTimestamps(text: string, offsetSec: number): string {
 }
 
 /**
+ * trimmed 시각 기준 timestamp [HH:MM:SS] 를 원본 시각으로 역변환.
+ * VAD 로 무음 잘라낸 입력의 Gemini 응답을 원본 녹음 시각 기준 회의록으로 정렬.
+ */
+function mapTimestampsToOriginal(text: string, segmentMap: SegmentMap[]): string {
+  return text.replace(/\[(\d{1,2}):(\d{2})(?::(\d{2}))?\]/g, (_, a: string, b: string, c?: string) => {
+    const total = c !== undefined
+      ? parseInt(a, 10) * 3600 + parseInt(b, 10) * 60 + parseInt(c, 10)
+      : parseInt(a, 10) * 60 + parseInt(b, 10);
+    return `[${formatTs(trimmedToOriginal(total, segmentMap))}]`;
+  });
+}
+
+/**
  * 청크를 순차적으로 처리하면서 직전 청크의 마지막 발화를 다음 프롬프트에 컨텍스트로 inject.
  * 화자 라벨이 STT 단계에서 자연스럽게 일관성 유지됨 (사후 매핑 LLM 호출 불필요).
  *
@@ -135,22 +176,41 @@ async function transcribeChunksSequential(
   for (let i = 0; i < chunks.length; i++) {
     const chunk = chunks[i]!;
     onProgress?.(
-      `🎙️ 청크 ${i + 1}/${total} 처리 중...`,
-      i === 0 ? '첫 청크' : '직전 컨텍스트 inject',
+      `🎙️ ${i + 1}/${total}번째 조각 녹취 중...`,
+      i === 0 ? undefined : '이전 대화 이어받기',
     );
     const t = Date.now();
     const prompt = buildPromptWithContext(prevContext);
-    const result = await transcribeChunkViaFileApi(chunk.chunkPath, prompt);
+    let result;
+    try {
+      result = await transcribeChunkViaFileApi(chunk.chunkPath, prompt);
+    } catch (err) {
+      await logEvent({
+        level: 'error',
+        context: 'audio:chunk',
+        message: `${i + 1}/${total}번째 조각 녹취 실패`,
+        step: `chunk ${i + 1}/${total}`,
+        err,
+        extra: {
+          chunkIndex: i,
+          totalChunks: total,
+          chunkStartSec: chunk.startSec,
+          chunkPath: chunk.chunkPath,
+          model: MODELS.AUDIO,
+        },
+      });
+      throw err;
+    }
     results.push({
       index: chunk.index,
       startSec: chunk.startSec,
       text: result.text,
       usage: result.usage,
     });
-    const elapsed = ((Date.now() - t) / 1000).toFixed(1);
+    const elapsed = ((Date.now() - t) / 1000).toFixed(0);
     onProgress?.(
-      `✅ 청크 ${i + 1}/${total} 완료 (${elapsed}초, ${result.usage.inputTokens.toLocaleString()} 토큰)`,
-      `${i + 1}/${total} · 누적 비용 ${results.reduce((s, r) => s + r.usage.costUsd, 0).toFixed(4)} USD`,
+      `✅ ${i + 1}/${total}번째 완료`,
+      `${elapsed}초 소요 · 누적 $${results.reduce((s, r) => s + r.usage.costUsd, 0).toFixed(3)}`,
     );
     prevContext = extractLastSpeakerLines(result.text);
   }
@@ -159,33 +219,71 @@ async function transcribeChunksSequential(
 
 export async function runAudioPipeline(
   filePath: string,
-  originalName?: string,
-  onProgress?: ProgressCallback,
+  options: AudioPipelineOptions = {},
 ): Promise<AudioResult> {
+  const { originalName, onProgress, trimSilence: doTrim = false } = options;
   const fileName = originalName ?? path.basename(filePath);
   const name = basename(originalName ?? filePath);
 
-  onProgress?.(`📤 파일 수신 완료 — ${fileName}`);
+  onProgress?.(`📤 파일 확인 완료 — ${fileName}`);
 
   // 0) 원본 녹음 시각 메타데이터 추출 (분 단위 KST). 실패는 silent.
+  //    원본 파일 기준으로 추출 (trim 후 mp3 는 메타 X).
   const recordedAtDate = await probeRecordingTime(filePath).catch(() => undefined);
   const recordedAt = recordedAtDate ? formatKstMinute(recordedAtDate) : undefined;
   if (recordedAt) {
-    onProgress?.(`🕐 원본 녹음 시각: ${recordedAt}`);
+    onProgress?.(`🕐 녹음 시각: ${recordedAt}`);
   }
 
-  // 1) 길이 측정 → 짧으면 inline 경로, 길면 청크 모드, 너무 길면 거부
+  // 1) VAD trim 옵션 ON 시 — 무음 잘라낸 mp3 + 매핑 테이블 확보
+  let trim: TrimResult | null = null;
+  let workPath = filePath;
+  if (doTrim) {
+    try {
+      trim = await trimSilence(filePath, { onProgress });
+      workPath = trim.trimmedPath;
+    } catch (err) {
+      await logEvent({
+        level: 'warn',
+        context: 'audio:trim',
+        message: 'VAD 기반 무음 제거 실패 — 원본으로 fallback',
+        err,
+        extra: { filePath, originalName },
+      });
+      onProgress?.(
+        '⚠️ 무음 제거 실패 — 원본 그대로 진행합니다',
+        err instanceof Error ? err.message : String(err),
+      );
+      trim = null;
+    }
+  }
+
+  try {
+    return await runPipelineCore(workPath, fileName, name, onProgress, recordedAt, trim);
+  } finally {
+    if (trim) await cleanupTrimmed(trim);
+  }
+}
+
+async function runPipelineCore(
+  workPath: string,
+  fileName: string,
+  name: string,
+  onProgress: ProgressCallback | undefined,
+  recordedAt: string | undefined,
+  trim: TrimResult | null,
+): Promise<AudioResult> {
+  // 길이 측정 → 짧으면 inline 경로, 길면 청크 모드, 너무 길면 거부
   let duration: number;
   try {
-    onProgress?.('📊 길이 측정 중...');
-    duration = await probeDuration(filePath);
+    duration = await probeDuration(workPath);
   } catch (err) {
     // ffprobe 미설치 등 → inline 경로로 폴백 시도 (짧은 파일이면 동작)
     onProgress?.(
-      '⚠️  길이 측정 실패 — inline 경로로 시도합니다.',
+      '⚠️ 길이 측정 실패 — 그대로 진행합니다',
       err instanceof Error ? err.message : String(err),
     );
-    return runInlineFallback(filePath, fileName, name, onProgress, recordedAt);
+    return runInlineFallback(workPath, fileName, name, onProgress, recordedAt, trim);
   }
 
   if (duration > MAX_DURATION_SEC) {
@@ -195,42 +293,32 @@ export async function runAudioPipeline(
   }
 
   if (duration <= CHUNK_THRESHOLD_SEC) {
-    onProgress?.(
-      `🎙️ 녹취 중... (${(duration / 60).toFixed(1)}분, 단일 처리)`,
-      MODELS.AUDIO,
-    );
-    return runInlineFallback(filePath, fileName, name, onProgress, recordedAt);
+    onProgress?.(`🎙️ 녹취 중... (${fmtDuration(duration)})`);
+    return runInlineFallback(workPath, fileName, name, onProgress, recordedAt, trim);
   }
 
-  // 2) 청크 모드
+  // 청크 모드
   const numChunks = Math.ceil(duration / CHUNK_DURATION_SEC);
   onProgress?.(
-    `🔪 ffmpeg 청크 분할 (${CHUNK_DURATION_SEC / 60}분 × ${numChunks}개)`,
-    `총 ${(duration / 60).toFixed(1)}분`,
+    `🔪 녹음 파일 분할 중`,
+    `${CHUNK_DURATION_SEC / 60}분씩 ${numChunks}조각`,
   );
 
-  const tSplit = Date.now();
-  const chunks = await splitAudioToChunks(filePath, CHUNK_DURATION_SEC);
-  onProgress?.(
-    `✅ 분할 완료 (${chunks.length}개, ${((Date.now() - tSplit) / 1000).toFixed(1)}초)`,
-    `순차 처리 시작 — 직전 청크 컨텍스트 inject 로 화자 라벨 일관성 유지`,
-  );
+  const chunks = await splitAudioToChunks(workPath, CHUNK_DURATION_SEC);
+  onProgress?.(`✅ 분할 완료`);
 
   const usageList: UsageInfo[] = [];
   try {
-    const tSeq = Date.now();
     const chunkResults = await transcribeChunksSequential(chunks, onProgress);
-    onProgress?.(
-      `✅ 순차 녹취 완료 (${((Date.now() - tSeq) / 1000).toFixed(1)}초)`,
-    );
     for (const r of chunkResults) usageList.push(r.usage);
 
-    onProgress?.('💾 결과 머지 + 두 버전 생성 중...');
+    onProgress?.('💾 결과 합치는 중...');
 
-    // 청크별: 실측 startSec 으로 타임스탬프 오프셋만 적용 (화자 매핑 불필요 — STT 단계에서 이미 일관)
-    const merged = chunkResults
+    // 청크별: 실측 startSec 으로 타임스탬프 오프셋 (=trimmed 시각). trim 적용 시 마지막에 segmentMap 으로 원본 시각 역매핑.
+    let merged = chunkResults
       .map((r) => offsetTimestamps(r.text, r.startSec).trim())
       .join('\n\n');
+    if (trim) merged = mapTimestampsToOriginal(merged, trim.segmentMap);
 
     return buildAudioResult(merged, fileName, name, usageList, recordedAt);
   } finally {
@@ -244,14 +332,17 @@ async function runInlineFallback(
   name: string,
   onProgress?: ProgressCallback,
   recordedAt?: string,
+  trim?: TrimResult | null,
 ): Promise<AudioResult> {
   const t = Date.now();
   const result = await transcribeInline(filePath);
   onProgress?.(
-    `✅ 녹취 완료 (${((Date.now() - t) / 1000).toFixed(1)}초)`,
-    `${result.usage.inputTokens.toLocaleString()} 토큰 입력`,
+    `✅ 녹취 완료`,
+    `${((Date.now() - t) / 1000).toFixed(0)}초 소요`,
   );
-  return buildAudioResult(result.text, fileName, name, [result.usage], recordedAt);
+  // trim 적용 시 응답 timestamp 는 trimmed 시각 — 원본 시각으로 역매핑
+  const body = trim ? mapTimestampsToOriginal(result.text, trim.segmentMap) : result.text;
+  return buildAudioResult(body, fileName, name, [result.usage], recordedAt);
 }
 
 function buildAudioResult(

@@ -67,8 +67,11 @@ const OUTPUT_DIR = path.join(app.getPath('documents'), 'Doc Converter Output');
 /** 사용자 템플릿 디렉토리 — CLI 와 호환 (template-loader.ts 와 일치) */
 const TEMPLATES_DIR = path.join(os.homedir(), '.doc-converter', 'meeting-templates');
 
+/** 에러 추적용 로그 디렉토리 — error-logger.ts 와 일치 */
+const LOGS_DIR = path.join(os.homedir(), '.doc-converter', 'logs');
+
 function ensureUserDirs() {
-  for (const dir of [OUTPUT_DIR, TEMPLATES_DIR]) {
+  for (const dir of [OUTPUT_DIR, TEMPLATES_DIR, LOGS_DIR]) {
     try {
       fsSync.mkdirSync(dir, { recursive: true });
     } catch (err) {
@@ -269,6 +272,10 @@ function buildMenu() {
           label: '템플릿 폴더 열기',
           click: () => { void shell.openPath(TEMPLATES_DIR); },
         },
+        {
+          label: '로그 폴더 열기',
+          click: () => { void shell.openPath(LOGS_DIR); },
+        },
       ],
     },
   ];
@@ -322,9 +329,13 @@ function registerIpc() {
   ipcMain.handle('folders:open-templates', async () => {
     return shell.openPath(TEMPLATES_DIR);
   });
+  ipcMain.handle('folders:open-logs', async () => {
+    return shell.openPath(LOGS_DIR);
+  });
   ipcMain.handle('folders:get-paths', async () => ({
     output: OUTPUT_DIR,
     templates: TEMPLATES_DIR,
+    logs: LOGS_DIR,
   }));
 
   ipcMain.handle('settings:delete-key', async (_evt, payload) => {

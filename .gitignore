@@ -6,9 +6,20 @@ dist/
 
 # Throwaway ad-hoc test scripts (per CLAUDE.md: not a test suite)
 /test*.ts
+/run-trim-once.ts
 
 # User output directory (default --output target)
 /output/
+
+# User audio samples (recordings — never commit)
+*.qta
+*.m4a
+*.mp3
+*.wav
+*.aac
+*.ogg
+*.flac
+*.wma
 
 # Electron build artifacts
 /dist-electron/

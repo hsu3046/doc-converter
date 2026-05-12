@@ -1,6 +1,7 @@
 import { GoogleGenAI, createPartFromUri } from '@google/genai';
 import util from 'node:util';
 import { PRICING, type UsageInfo, type GenerateResult } from '../types/index.js';
+import { logEvent } from '../utils/error-logger.js';
 
 let client: GoogleGenAI | null = null;
 
@@ -38,7 +39,25 @@ export function calcCost(model: string, inputTokens: number, outputTokens: numbe
  * 재시도 불가능한 에러(400, 401, 403, INVALID_ARGUMENT 등)는 즉시 throw.
  */
 const RETRY_STATUSES = new Set([429, 500, 502, 503, 504]);
-const RETRY_KEYWORDS = ['UNAVAILABLE', 'RESOURCE_EXHAUSTED', 'INTERNAL', 'DEADLINE_EXCEEDED'];
+const RETRY_KEYWORDS = [
+  // Gemini 서버 측 일시 에러
+  'UNAVAILABLE', 'RESOURCE_EXHAUSTED', 'INTERNAL', 'DEADLINE_EXCEEDED',
+  // 네트워크 일시 단절 (undici fetch / Node 내장 fetch)
+  'fetch failed', 'ECONNRESET', 'ECONNREFUSED', 'ETIMEDOUT', 'EAI_AGAIN',
+  'socket hang up', 'network error', 'ENOTFOUND', 'ENETUNREACH',
+  'UND_ERR_SOCKET', 'UND_ERR_CONNECT_TIMEOUT', 'UND_ERR_HEADERS_TIMEOUT',
+];
+
+function isNetworkError(err: unknown): boolean {
+  const msg = String((err as { message?: unknown })?.message ?? '');
+  const causeMsg = String(((err as { cause?: { message?: unknown } })?.cause?.message) ?? '');
+  const code = (err as { code?: unknown })?.code;
+  const causeCode = (err as { cause?: { code?: unknown } })?.cause?.code;
+  for (const k of RETRY_KEYWORDS) {
+    if (msg.includes(k) || causeMsg.includes(k) || code === k || causeCode === k) return true;
+  }
+  return false;
+}
 
 function extractStatusCode(err: unknown): number | undefined {
   if (typeof err !== 'object' || err === null) return undefined;
@@ -56,8 +75,7 @@ function extractStatusCode(err: unknown): number | undefined {
 function isRetryable(err: unknown): boolean {
   const status = extractStatusCode(err);
   if (status && RETRY_STATUSES.has(status)) return true;
-  const msg = (err as { message?: string })?.message ?? '';
-  return RETRY_KEYWORDS.some((k) => msg.includes(k));
+  return isNetworkError(err);
 }
 
 function friendlyError(err: unknown): Error {
@@ -68,6 +86,9 @@ function friendlyError(err: unknown): Error {
   }
   if (status === 429 || msg.includes('RESOURCE_EXHAUSTED')) {
     return new Error('Gemini API 할당량이 초과되었습니다. 잠시 후 다시 시도해주세요.');
+  }
+  if (isNetworkError(err)) {
+    return new Error('네트워크 연결이 불안정합니다. 잠시 후 다시 시도해주세요.');
   }
   return err instanceof Error ? err : new Error(msg);
 }
@@ -83,14 +104,28 @@ async function withRetry<T>(
       return await fn();
     } catch (err) {
       lastErr = err;
-      if (attempt === maxAttempts || !isRetryable(err)) {
+      const retryable = isRetryable(err);
+      if (attempt === maxAttempts || !retryable) {
+        // 최종 실패 — 상세 정보 기록
+        await logEvent({
+          level: 'error',
+          context: `gemini:${label}`,
+          message: `${label} 실패 (재시도 ${attempt - 1}회 후 포기)`,
+          err,
+          extra: { attempts: attempt, maxAttempts, retryable },
+        });
         throw friendlyError(err);
       }
       const backoffMs = Math.min(1000 * 2 ** (attempt - 1), 8000);
       const status = extractStatusCode(err) ?? '?';
-      console.warn(
-        `[gemini retry] ${label} 실패 (status=${status}, attempt ${attempt}/${maxAttempts}). ${backoffMs}ms 후 재시도.`,
-      );
+      // 중간 실패 — warn 으로만 기록 (사용자가 결과적으로 성공하면 무시 가능)
+      await logEvent({
+        level: 'warn',
+        context: `gemini:${label}`,
+        message: `${label} 시도 ${attempt}/${maxAttempts} 실패, ${backoffMs}ms 후 재시도`,
+        err,
+        extra: { attempt, maxAttempts, backoffMs, status },
+      });
       await new Promise((r) => setTimeout(r, backoffMs));
     }
   }
@@ -152,24 +187,38 @@ export async function generateTextWithFileApi(
   let uploadedFileName: string | undefined;
 
   try {
-    // 1. File API로 업로드
+    // 1. File API로 업로드 (네트워크 일시 단절 대비 retry)
     onUploadProgress?.('📡 Gemini File API에 업로드 중...');
-    const uploaded = await ai.files.upload({
-      file: filePath,
-      config: { mimeType, displayName: filePath.split('/').pop() },
-    });
+    const uploaded = await withRetry(`files.upload`, () =>
+      ai.files.upload({
+        file: filePath,
+        config: { mimeType, displayName: filePath.split('/').pop() },
+      }),
+    );
 
     uploadedFileName = uploaded.name;
     onUploadProgress?.(`✅ 업로드 완료 (${uploaded.name})`);
 
     // 2. 파일이 ACTIVE 상태가 될 때까지 대기 (대용량 파일 처리 시간 필요)
+    //    개별 polling 요청은 네트워크 일시 에러를 자체 흡수 — polling 자체는 무한 루프라
+    //    한 번 실패해도 다음 iteration 에서 다시 시도하는 게 자연.
     let fileState = uploaded.state as string | undefined;
     if (fileState === 'PROCESSING' || fileState === undefined) {
       onUploadProgress?.('⏳ 파일 처리 대기 중...');
       const pollStart = Date.now();
       while (true) {
         await new Promise((r) => setTimeout(r, 2000));
-        const info = await (ai.files as any).get({ name: uploaded.name });
+        let info: { state?: string };
+        try {
+          info = await (ai.files as any).get({ name: uploaded.name });
+        } catch (pollErr) {
+          if (isNetworkError(pollErr)) {
+            // 네트워크 일시 단절 — 다음 iteration 에서 다시 polling
+            onUploadProgress?.('⏳ 네트워크 일시 단절, 재시도 중...');
+            continue;
+          }
+          throw pollErr;
+        }
         fileState = info.state as string;
         const elapsed = ((Date.now() - pollStart) / 1000).toFixed(0);
         if (fileState === 'ACTIVE') {

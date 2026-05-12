@@ -36,6 +36,7 @@
     "express": "^5.2.1",
     "glob": "^13.0.6",
     "multer": "^2.1.1",
+    "onnxruntime-node": "^1.26.0",
     "ora": "^9.3.0",
     "pdf-poppler": "^0.2.3"
   },

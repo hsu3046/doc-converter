@@ -15,7 +15,7 @@ function formatCost(cost: CostSummary): string {
 
 export async function transcribeCommand(input: string, options: TranscribeOptions): Promise<void> {
   const files = await glob(input, { absolute: true, nodir: true });
-  const supportedExts = ['.mp3', '.wav', '.m4a', '.aac', '.ogg', '.flac', '.wma'];
+  const supportedExts = ['.mp3', '.wav', '.m4a', '.qta', '.aac', '.ogg', '.flac', '.wma'];
   const audioFiles = files.filter((f) => supportedExts.includes(path.extname(f).toLowerCase()));
 
   if (audioFiles.length === 0) {
@@ -29,7 +29,9 @@ export async function transcribeCommand(input: string, options: TranscribeOption
   for (const file of audioFiles) {
     const spinner = ora(`녹취 중: ${path.basename(file)}`).start();
     try {
-      const { timestamped, clean, cost } = await runAudioPipeline(file);
+      const { timestamped, clean, cost } = await runAudioPipeline(file, {
+        trimSilence: options.trimSilence ?? false,
+      });
       const name = basename(file);
       const tsPath = path.join(options.output, `${name}_timestamped.md`);
       const cleanPath = path.join(options.output, `${name}_clean.md`);
